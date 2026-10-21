@@ -96,6 +96,9 @@ class ControlTests(test_inbox.InboxTests):
         with TestClient(api.app) as client:
             self.login(client);case=self.case(client);me=client.get('/api/auth/me').json()
             self.assertEqual(client.get('/api/billing').json()['effective_status'],'pilot')
+            self.assertEqual(client.post('/api/billing/trial',json={'plan':'firm'}).status_code,409)
+            self.assertEqual(client.get('/api/billing').json()['effective_status'],'pilot')
+            with api.db() as c:c.execute("UPDATE subscriptions SET status='expired' WHERE user_id=?",(me['id'],))
             trial=client.post('/api/billing/trial',json={'plan':'firm'})
             self.assertEqual(trial.status_code,200,trial.text)
             self.assertEqual(client.get('/api/billing').json()['effective_status'],'trial')

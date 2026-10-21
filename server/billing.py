@@ -96,6 +96,8 @@ def router(db,require_user,now):
         with db() as c:
             c.execute('BEGIN IMMEDIATE');row=ensure(c,user['id'])
             if row['trial_started'] or row['subscription_id']:raise HTTPException(409,'Trial already used or subscription exists')
+            # A trial would replace unlimited free pilot access with a seven-day expiry.
+            if effective(row)=='pilot':raise HTTPException(409,'Pilot access is already free; no trial needed')
             end=(datetime.now(UTC)+timedelta(days=7)).isoformat()
             c.execute("UPDATE subscriptions SET plan=?,status='trial',trial_started=?,trial_end=?,updated_at=?,version=version+1 WHERE user_id=?",(payload.plan,now(),end,now(),user['id']))
             audit(c,user['id'],user['id'],'trial_started',payload.plan)
