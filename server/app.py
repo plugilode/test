@@ -38,6 +38,10 @@ from . import calendar_export
 from . import fee_tables
 from . import route_plans
 from . import ocr_routes
+from . import account
+from . import deletion
+from . import deadlines
+from . import mailbox
 from .legal_context import attach_snapshot, legal_row, supplied_legal_passages, citation_audit
 from .letterheads import normalize, compose_pdf, office_path
 from .word_export import compose_docx
@@ -67,7 +71,7 @@ app = FastAPI(title="Virtuelle Rechtsassistenz Schimmelpilz", version="0.4.0", l
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:4173", "http://127.0.0.1:4173"],
-    allow_methods=["GET", "POST", "PUT"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "X-Schimmelpilz-Request"],
     allow_credentials=True,
 )
@@ -428,6 +432,8 @@ def init_db() -> None:
         ocr_routes.migrate(connection)
         control.migrate(connection)
         billing.migrate(connection)
+        account.migrate(connection)
+        mailbox.migrate(connection)
 
 
 async def require_user(request: Request) -> dict:
@@ -465,7 +471,13 @@ def register(payload: RegisterInput, request: Request, response: Response) -> di
             # Preserve pre-account local prototype files for its first owner.
             connection.execute("UPDATE cases SET user_id = ? WHERE user_id IS NULL", (user_id,))
         set_session(connection, user_id, request, response)
-        return public_user(connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
+        row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        if account.mail_ready(request):
+            try:
+                account.send_verification(connection, request, row)
+            except account.mailer.MailUnavailable:
+                pass  # Registration succeeds; confirmation can be requested again later.
+        return public_user(row)
 
 
 @app.post("/api/auth/login")
@@ -478,6 +490,12 @@ def login(payload: LoginInput, request: Request, response: Response) -> dict:
         if not user or not valid or user['disabled']:
             failed_logins.setdefault(key, []).append(datetime.now(UTC))
             raise HTTPException(status_code=401, detail="Email or password incorrect")
+        if user['mfa_enabled_at']:
+            if not payload.mfa_code:
+                raise HTTPException(status_code=401, detail="mfa_required")
+            if not account.check_second_factor(connection, user, payload.mfa_code):
+                failed_logins.setdefault(key, []).append(datetime.now(UTC))
+                raise HTTPException(status_code=401, detail="mfa_code_invalid")
         failed_logins.pop(key, None)
         set_session(connection, user["id"], request, response)
         return public_user(user)
@@ -671,6 +689,75 @@ def export_draft_pdf(case_id: str, draft_id: str, user: dict = Depends(require_u
     result.headers['X-Draft-Review-Status'] = row['review_status']
     result.headers['Content-Disposition'] = f'attachment; filename="Schimmelpilz-v{row["version"]}-{row["review_status"]}.pdf"'
     return result
+
+
+class DraftSendInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    to: str = Field(min_length=3, max_length=254)
+    subject: str = Field(min_length=1, max_length=200)
+    message: str = Field(default="", max_length=5000)
+    attachment: Literal["pdf", "docx"] = "pdf"
+    expected_version: int = Field(ge=1)
+    confirmed: Literal[True]
+
+    @field_validator("to", "subject", mode="before")
+    @classmethod
+    def single_line(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            # Header values: refuse line breaks so no extra recipients or headers can be injected.
+            if any(character in value for character in "\r\n"):
+                raise ValueError("Line breaks are not allowed")
+        return value
+
+    @field_validator("to")
+    @classmethod
+    def one_address(cls, value):
+        if value.count("@") != 1 or any(character.isspace() or character in ",;<>" for character in value) or "." not in value.split("@")[1]:
+            raise ValueError("Exactly one valid email address is required")
+        return value.lower()
+
+
+SEND_LIMIT: dict[str, list[float]] = {}
+
+
+@app.post("/api/cases/{case_id}/drafts/{draft_id}/send")
+def send_draft(case_id: str, draft_id: str, payload: DraftSendInput, user: dict = Depends(require_user)):
+    """Explicit, recorded email of one saved draft version. Ordinary email is not formal court filing."""
+    if not account.mailer.configured():
+        raise HTTPException(503, "mail_not_configured")
+    case = get_case(case_id, user["id"])
+    actor = user.get("actor_id", user["id"])
+    import time
+    recent = [stamp for stamp in SEND_LIMIT.get(actor, []) if stamp > time.time() - 3600]
+    if len(recent) >= 20:
+        raise HTTPException(429, "send_limit_reached")
+    with db() as connection:
+        row = connection.execute("SELECT * FROM drafts WHERE case_id=? AND id=?", (case_id, draft_id)).fetchone()
+        if not row:
+            raise HTTPException(404, "Draft not found")
+        if row["version"] != payload.expected_version:
+            raise HTTPException(409, "draft_version_conflict")
+    layout = json.loads(row["letterhead_layout"]) if row["letterhead_layout"] else LetterheadLayout(top_mm=25, bottom_mm=25).model_dump()
+    if payload.attachment == "pdf":
+        content = letterhead_pdf_response(row["body"], row["letterhead_id"], layout, user["id"]).body
+        filename, maintype, subtype = f"{case['reference']}-v{row['version']}.pdf", "application", "pdf"
+    else:
+        content = word_response(row["body"], row["letterhead_id"], layout, user["id"], case["reference"], row["version"]).body
+        filename, maintype, subtype = f"{case['reference']}-v{row['version']}.docx", "application", "vnd.openxmlformats-officedocument.wordprocessingml.document"
+    filename = "".join(character if character.isalnum() or character in "-_." else "_" for character in filename)
+    body = payload.message.strip() or ("Anbei erhalten Sie unser Schreiben." if row["language"] == "de" else "Please find our letter attached.")
+    try:
+        message_id = account.mailer.send(payload.to, payload.subject, body, [(filename, content, maintype, subtype)], reply_to=user["email"])
+    except account.mailer.MailUnavailable:
+        raise HTTPException(503, "mail_delivery_failed") from None
+    SEND_LIMIT[actor] = recent + [time.time()]
+    evidence = {"to": payload.to, "subject": payload.subject, "attachment": filename, "attachment_sha256": hashlib.sha256(content).hexdigest(),
+                "message_id": message_id, "review_status": row["review_status"], "scope": "email_delivery_not_formal_filing"}
+    with db() as connection:
+        draft_review.event(connection, row, user, "sent", payload.message.strip()[:2500], evidence)
+        activity = record_activity(connection, case_id, "draft_sent", f"v{row['version']} → {payload.to}")
+    return {"sent": True, "message_id": message_id, "attachment": filename, "review_status": row["review_status"], "activity": activity}
 
 
 def row_case(row: sqlite3.Row, connection: sqlite3.Connection) -> dict:
@@ -966,7 +1053,8 @@ def extract_document(case_id: str, document_id: str, user: dict = Depends(requir
     get_case(case_id, user["id"])
     with db() as connection:
         document = get_document(connection, case_id, document_id)
-        if connection.execute("SELECT 1 FROM document_extractions WHERE document_id=?", (document_id,)).fetchone():
+        existing = connection.execute("SELECT status, error_code FROM document_extractions WHERE document_id=?", (document_id,)).fetchone()
+        if existing and not (existing["status"] == "failed" and existing["error_code"] == "extraction_failed"):
             return document_text(connection, document_id)
     if not EXTRACTION_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=429, detail="extraction_busy")
@@ -980,6 +1068,8 @@ def extract_document(case_id: str, document_id: str, user: dict = Depends(requir
         except (subprocess.SubprocessError, ValueError, OSError):
             result = {"status": "failed", "error_code": "extraction_failed", "unit_kind": "page" if target.suffix == ".pdf" else "section", "truncated": False, "units": []}
         with db() as connection:
+            # A worker crash or timeout is transient: replace it on retry. Any other stored result is kept.
+            connection.execute("DELETE FROM document_extractions WHERE document_id=? AND status='failed' AND error_code='extraction_failed'", (document_id,))
             # Another request may have completed before the lock was acquired.
             if not connection.execute("SELECT 1 FROM document_extractions WHERE document_id=?", (document_id,)).fetchone():
                 connection.execute("INSERT INTO document_extractions(document_id,status,error_code,unit_kind,truncated,created_at) VALUES (?,?,?,?,?,?)", (document_id, result["status"], result["error_code"], result["unit_kind"], result["truncated"], now()))
@@ -1182,6 +1272,8 @@ def draft_review_action(case_id: str, draft_id: str, payload: DraftReviewInput, 
 
 
 app.include_router(contacts.router(db, require_user, now, record_activity))
+# Registered before the inbox router so /api/inbox/mailbox is not read as an inbox entry id.
+app.include_router(mailbox.router(db, require_user, now, lambda: UPLOAD_DIR, lambda: DATA_DIR, MAX_UPLOAD_BYTES, ALLOWED_EXTENSIONS))
 app.include_router(inbox.router(db, require_user, now, record_activity, lambda: UPLOAD_DIR, MAX_UPLOAD_BYTES, ALLOWED_EXTENSIONS))
 app.include_router(costs.router(db, require_user, now, record_activity))
 app.include_router(case_tools.router(db, require_user, now, record_activity, row_case, lambda: DATA_DIR, lambda: UPLOAD_DIR))
@@ -1193,3 +1285,6 @@ app.include_router(ocr_routes.router(db, require_user, now, record_activity, get
 app.include_router(control.router(db,require_user,now,lambda:{'ai':ollama_status(),'ocr_available':document_ocr.available(),'catalogue':legal_catalogue.catalogue_status()}))
 
 app.include_router(billing.router(db,require_user,now))
+app.include_router(account.router(db, require_user, lambda: UPLOAD_DIR, lambda: DATA_DIR))
+app.include_router(deadlines.router(require_user))
+app.include_router(deletion.router(db, require_user, record_activity, lambda: UPLOAD_DIR, lambda: DATA_DIR))

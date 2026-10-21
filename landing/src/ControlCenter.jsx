@@ -3,7 +3,7 @@ import {request} from './useCaseStorage.js';
 import './control-center.css';
 
 const send=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-const textError=(error,de)=>error.status===403?(de?'Für diese Aktion fehlt die Berechtigung.':'Permission is required.'):error.status===409?(de?'Der Stand wurde geändert oder die Aktion ist bereits erfolgt. Bitte neu laden.':'State changed or action already completed. Reload.'):error.status===503?(de?'Der Zahlungsanbieter ist noch nicht eingerichtet oder nicht erreichbar.':'Payment provider is not configured or unavailable.'):(de?'Aktion fehlgeschlagen. Eingaben prüfen.':'Action failed. Check the fields.');
+const textError=(error,de)=>error.detail==='admin_mfa_required'?(de?'Verwaltungsfunktionen erfordern die Zwei-Faktor-Anmeldung. Aktivieren Sie sie unter Kanzlei / Profil.':'Administration requires two-factor sign-in. Enable it under Office / profile.'):error.status===403?(de?'Für diese Aktion fehlt die Berechtigung.':'Permission is required.'):error.status===409?(de?'Der Stand wurde geändert oder die Aktion ist bereits erfolgt. Bitte neu laden.':'State changed or action already completed. Reload.'):error.status===503?(de?'Der Zahlungsanbieter ist noch nicht eingerichtet oder nicht erreichbar.':'Payment provider is not configured or unavailable.'):(de?'Aktion fehlgeschlagen. Eingaben prüfen.':'Action failed. Check the fields.');
 
 export function WorkspaceSelect({lang,onAccess}){
   const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);const de=lang==='de';
