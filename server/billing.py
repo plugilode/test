@@ -13,7 +13,7 @@ from urllib.request import Request as UrlRequest, urlopen
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from .control import audit
+from .control import audit, require_operator
 
 PLANS={'personal':990,'business':2990,'firm':4990}
 
@@ -39,7 +39,8 @@ def effective(row):
 
 def enforce(c,user,request):
     if user.get('is_admin'):return
-    if request.method in {'GET','HEAD'} or request.url.path.startswith(('/api/auth/','/api/team','/api/admin','/api/billing')):return
+    # Reading, exporting and deleting own data stay available after a trial or subscription ends.
+    if request.method in {'GET','HEAD','DELETE'} or request.url.path.startswith(('/api/auth/','/api/team','/api/admin','/api/billing')):return
     row=ensure(c,user['id'])
     if effective(row) not in {'pilot','trial','active'}:raise HTTPException(402,'subscription_required_read_export_remains_available')
 
@@ -176,14 +177,14 @@ def router(db,require_user,now):
 
     @r.get('/api/admin/billing')
     def admin_billing(user:dict=Depends(require_user)):
-        if not user.get('is_admin'):raise HTTPException(403,'administrator_required')
+        require_operator(user)
         with db() as c:
             for row in c.execute('SELECT id FROM users').fetchall():ensure(c,row['id'])
             return {'checkout_ready':configured(),'subscriptions':[{**dict(row),'effective_status':effective(dict(row))} for row in c.execute('SELECT s.*,u.email FROM subscriptions s JOIN users u ON u.id=s.user_id ORDER BY s.updated_at DESC')]}
 
     @r.put('/api/admin/billing/{identifier}')
     def pilot(identifier:str,payload:PilotControl,user:dict=Depends(require_user)):
-        if not user.get('is_admin'):raise HTTPException(403,'administrator_required')
+        require_operator(user)
         if len(payload.reason.strip())<10:raise HTTPException(422,'Reason required')
         with db() as c:
             c.execute('BEGIN IMMEDIATE')

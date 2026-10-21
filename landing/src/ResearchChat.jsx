@@ -6,6 +6,16 @@ import { dateLabel } from "./workbench.js";
 import { ResearchDocumentPicker, ResearchSourceList } from "./ResearchSources.jsx";
 import {LegalSourcePanel,LegalAnswerSources,CitedAnswer,legalLedger} from './LegalSources.jsx';
 
+// crypto.randomUUID only exists on HTTPS/localhost; plain-HTTP LAN access still needs request IDs.
+export function requestId() {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 function sourceLedger(sources = [], language) {
   if (!sources.length) return "";
   const de = language === "de";
@@ -54,7 +64,7 @@ export function ResearchChat({ lang, selectedCase, onDraft, onDocuments }) {
     setBusy(true); setError("");
     controller.current = new AbortController();
     try {
-      const run = await request(`/cases/${selectedCase.id}/research`, { method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.current.signal, body: JSON.stringify({ request_id: crypto.randomUUID(), question: sentQuestion, language: lang, workflow, document_ids: documentIds, legal_source_ids:legalIds, use_legal_catalogue:automatic && (selectedCase.details.jurisdiction || 'DE') === 'DE' }) });
+      const run = await request(`/cases/${selectedCase.id}/research`, { method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.current.signal, body: JSON.stringify({ request_id: requestId(), question: sentQuestion, language: lang, workflow, document_ids: documentIds, legal_source_ids:legalIds, use_legal_catalogue:automatic && (selectedCase.details.jurisdiction || 'DE') === 'DE' }) });
       setRuns(current => [...current, run]); setQuestion(""); setStatus(current => ({ ...current, ready: true }));
     } catch (failure) {
       if (failure.name === "AbortError") return;

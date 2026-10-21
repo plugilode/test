@@ -13,8 +13,8 @@ const checklist = {
   en:{facts:'Facts, evidence and missing particulars',source_versions:'Applicable versions, passages and proposition support',adverse_authority:'Counterarguments and adverse authority',procedure_recipient_signature:'Jurisdiction, form, deadlines, recipient and signature'},
 };
 const eventLabels = {
-  de:{created:'Entwurf erstellt',edited:'Fassung geändert',begin:'Prüfung begonnen',check:'Prüfvermerk gespeichert',approve:'Eigene Freigabe gespeichert',reopen:'Prüfung wieder geöffnet'},
-  en:{created:'Draft created',edited:'Version changed',begin:'Review started',check:'Review note saved',approve:'User approval saved',reopen:'Review reopened'},
+  de:{created:'Entwurf erstellt',edited:'Fassung geändert',begin:'Prüfung begonnen',check:'Prüfvermerk gespeichert',approve:'Eigene Freigabe gespeichert',reopen:'Prüfung wieder geöffnet',sent:'Per E-Mail versendet'},
+  en:{created:'Draft created',edited:'Version changed',begin:'Review started',check:'Review note saved',approve:'User approval saved',reopen:'Review reopened',sent:'Sent by email'},
 };
 const flags = {
   de:{missing_recipient:'Empfänger fehlt (oder interne Verwendung angeben)',placeholder:'Offener Platzhalter',unknown_citation:'Quellen-ID ohne gespeicherte Originalpassage',no_linked_passage:'Keine Originalpassage zugeordnet; Tatsachen und unbelegte Aussagen selbst prüfen',source_review_open:'Eigene Quellenprüfung war bei der Recherche offen',limited_excerpt:'Nur begrenzter Auszug verfügbar'},

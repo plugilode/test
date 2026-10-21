@@ -3,7 +3,8 @@ import os
 
 
 def load(path):
-    allowed={'PUBLIC_APP_URL','STRIPE_SECRET_KEY','STRIPE_WEBHOOK_SECRET','STRIPE_PRICE_PERSONAL','STRIPE_PRICE_BUSINESS','STRIPE_PRICE_FIRM'}
+    allowed={'PUBLIC_APP_URL','STRIPE_SECRET_KEY','STRIPE_WEBHOOK_SECRET','STRIPE_PRICE_PERSONAL','STRIPE_PRICE_BUSINESS','STRIPE_PRICE_FIRM',
+             'SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASSWORD','SMTP_FROM','SMTP_SECURITY','MAIL_OUTBOX_DIR','ADMIN_MFA_REQUIRED','MAILBOX_ALLOW_PRIVATE_HOSTS'}
     if not path.is_file():return
     for line in path.read_text(encoding='utf-8-sig').splitlines():
         line=line.strip()
