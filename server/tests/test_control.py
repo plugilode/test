@@ -65,6 +65,9 @@ class ControlTests(test_inbox.InboxTests):
             actor=admin.get('/api/auth/me').json();target=other.get('/api/auth/me').json();case=self.case(other)
             self.assertEqual(admin.get('/api/admin').status_code,403)
             with api.db() as c:c.execute('UPDATE users SET is_admin=1 WHERE id=?',(actor['id'],))
+            # Operator powers stay locked until the administrator uses a second factor.
+            self.assertEqual(admin.get('/api/admin').json()['detail'],'admin_mfa_required')
+            with api.db() as c:c.execute("UPDATE users SET mfa_enabled_at='2026-01-01',mfa_secret='JBSWY3DPEHPK3PXP' WHERE id=?",(actor['id'],))
             self.assertEqual(admin.get('/api/admin').status_code,200)
             self.assertEqual(admin.post('/api/team/switch',json={'owner_id':target['id']}).status_code,200)
             self.assertEqual(admin.get('/api/cases/'+case).status_code,200)
@@ -80,7 +83,7 @@ class ControlTests(test_inbox.InboxTests):
         with TestClient(api.app) as client:
             self.login(client);me=client.get('/api/auth/me').json();case=self.case(client)
             self.assertEqual(client.put('/api/admin/system',json={'ai_enabled':False,'registrations_enabled':False,'expected_version':0,'reason':'Synthetic operator controls'}).status_code,403)
-            with api.db() as c:c.execute('UPDATE users SET is_admin=1 WHERE id=?',(me['id'],))
+            with api.db() as c:c.execute("UPDATE users SET is_admin=1,mfa_enabled_at='2026-01-01',mfa_secret='JBSWY3DPEHPK3PXP' WHERE id=?",(me['id'],))
             settings={'ai_enabled':False,'registrations_enabled':False,'expected_version':0,'reason':'Synthetic operator controls'}
             self.assertEqual(client.put('/api/admin/system',json=settings).status_code,200)
             self.assertEqual(client.put('/api/admin/system',json=settings).status_code,409)
@@ -110,7 +113,7 @@ class ControlTests(test_inbox.InboxTests):
             self.assertEqual(client.get('/api/cases/'+case+'/export.zip').status_code,200)
             self.assertEqual(client.post('/api/billing/checkout',json={'plan':'personal','consent':False}).status_code,422)
             with patch.dict(os.environ,{'STRIPE_SECRET_KEY':''}):self.assertEqual(client.post('/api/billing/checkout',json={'plan':'personal','consent':True}).status_code,503)
-            with api.db() as c:c.execute('UPDATE users SET is_admin=1 WHERE id=?',(me['id'],))
+            with api.db() as c:c.execute("UPDATE users SET is_admin=1,mfa_enabled_at='2026-01-01',mfa_secret='JBSWY3DPEHPK3PXP' WHERE id=?",(me['id'],))
             row=client.get('/api/billing').json()
             self.assertEqual(client.put('/api/admin/billing/'+me['id'],json={'pilot':True,'reason':'Synthetic pilot restore test','expected_version':row['version']}).status_code,200)
             self.assertEqual(client.get('/api/billing').json()['effective_status'],'pilot')
