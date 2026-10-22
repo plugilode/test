@@ -4,12 +4,15 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -28,22 +31,30 @@ const val BRAND = "Rechtsassistentin Schimmelpilz"
 fun brandClaim() = tr("Entwickelt von einem ausgebildeten Rechtsanwaltsfachangestellten", "Developed by a trained German paralegal")
 
 @Composable
-fun BrandMark(size: Dp, modifier: Modifier = Modifier) =
-    Image(painterResource(R.drawable.logo_mark), contentDescription = null, modifier = modifier.size(size))
+fun BrandMark(height: Dp, modifier: Modifier = Modifier) =
+    Image(painterResource(R.drawable.logo_mark), contentDescription = null, modifier = modifier.height(height))
 
-/** CI lockup: badge, "Rechtsassistentin", "Schimmelpilz" and (unless compact) the claim; [scale] 1 matches the welcome header. */
+/**
+ * CI logo. Full: the supplied artwork with name and claim (light backgrounds); its black lettering would vanish on dark
+ * backgrounds, so dark mode and [compact] use the artwork plus live text. [scale] 1 = 64 dp artwork in the text variant.
+ */
 @Composable
-fun BrandLockup(modifier: Modifier = Modifier, compact: Boolean = false, scale: Float = 1f) {
+fun BrandLockup(modifier: Modifier = Modifier, compact: Boolean = false, scale: Float = 1f, fullWidth: Dp = 300.dp) {
     val claim = brandClaim()
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    if (!compact && !dark) {
+        Image(painterResource(R.drawable.logo_full), contentDescription = "$BRAND – $claim", modifier = modifier.widthIn(max = fullWidth).fillMaxWidth())
+        return
+    }
     Row(
         modifier.clearAndSetSemantics { contentDescription = if (compact) BRAND else "$BRAND – $claim" },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy((10 * scale).dp),
+        horizontalArrangement = Arrangement.spacedBy((8 * scale).dp),
     ) {
-        BrandMark(((if (compact) 44 else 64) * scale).dp)
+        BrandMark(((if (compact) 46 else 64) * scale).dp)
         Column {
-            Text("Rechtsassistentin", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Bold, fontSize = (17 * scale).sp, letterSpacing = (-0.01).em, lineHeight = (20 * scale).sp), color = MaterialTheme.colorScheme.onSurface)
-            Text("Schimmelpilz", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.ExtraBold, fontSize = (24 * scale).sp, letterSpacing = (-0.02).em, lineHeight = (27 * scale).sp), color = MaterialTheme.colorScheme.primary)
+            Text("Rechtsassistentin", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.ExtraBold, fontSize = (16 * scale).sp, letterSpacing = (-0.01).em, lineHeight = (19 * scale).sp), color = MaterialTheme.colorScheme.onSurface)
+            Text("Schimmelpilz", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.ExtraBold, fontSize = (23 * scale).sp, letterSpacing = (-0.02).em, lineHeight = (26 * scale).sp), color = MaterialTheme.colorScheme.primary)
             if (!compact) Text(claim, style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Medium, fontSize = (10.5 * scale).sp, lineHeight = (13 * scale).sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

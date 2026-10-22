@@ -1,19 +1,13 @@
+import logoUrl from "./assets/schimmelpilz-logo.webp";
 import markUrl from "./assets/schimmelpilz-mark.webp";
 
-const claim = {
-  de: "Entwickelt von einem ausgebildeten Rechtsanwaltsfachangestellten",
-  en: "Developed by a trained German paralegal",
-};
+const LABEL = "Rechtsassistentin Schimmelpilz – Entwickelt von einem ausgebildeten Rechtsanwaltsfachangestellten";
 
-// CI lockup: badge plus live wordmark in Plus Jakarta Sans, so the name stays sharp at every size.
-// Size follows --brand-size (font size of the lockup); `compact` drops the claim line.
-export function BrandLogo({ className = "brand-logo", lang = "de", compact = false }) {
-  return <span className={`brand-lockup ${compact ? "compact" : ""} ${className}`} role="img" aria-label={`Rechtsassistentin Schimmelpilz${compact ? "" : ` – ${claim[lang] || claim.de}`}`}>
-    <img className="brand-mark" src={markUrl} alt="" width="141" height="142" />
-    <span className="brand-words" aria-hidden="true">
-      <span className="brand-kicker">Rechtsassistentin</span>
-      <span className="brand-name">Schimmelpilz</span>
-      {!compact && <span className="brand-claim">{claim[lang] || claim.de}</span>}
-    </span>
+// CI logo: full lockup (artwork, name and claim) by default; `compact` shows only the artwork for tight spots.
+// Wide places size it with CSS width; the office header swaps to the mark on narrow screens.
+export function BrandLogo({ className = "brand-logo", compact = false }) {
+  return <span className={`brand-lockup ${compact ? "compact" : ""} ${className}`}>
+    <img className="brand-full" src={logoUrl} alt={LABEL} width="1000" height="388" />
+    <img className="brand-mark" src={markUrl} alt={LABEL} width="320" height="259" />
   </span>;
 }

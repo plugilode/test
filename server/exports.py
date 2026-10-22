@@ -13,7 +13,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Literal
 
 from docx import Document
-from docx.shared import Mm, Pt, RGBColor
+from docx.shared import Mm, Pt
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from openpyxl import Workbook
@@ -29,8 +29,9 @@ from pathlib import Path
 
 from .dates import display_date
 
-MARK = Path(__file__).parent / 'assets' / 'schimmelpilz-mark.png'
-BRAND, CLAIM = 'Rechtsassistentin Schimmelpilz', 'Entwickelt von einem ausgebildeten Rechtsanwaltsfachangestellten'
+# Full CI logo (artwork, name and claim) for the head of our own reports; drafts on the firm's letter paper never get it.
+LOGO = Path(__file__).parent / 'assets' / 'schimmelpilz-logo.jpg'
+LOGO_RATIO = 769 / 1984
 XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 FORMULA_START = ('=', '+', '-', '@', '\t', '\r', '\n')
@@ -140,9 +141,8 @@ def table_response(fmt, name, sheet, headers, rows, de):
 def blocks_pdf(title, blocks):
     """blocks: (style, text) with style one of Title, Heading2, Heading3, BodyText."""
     styles, output = getSampleStyleSheet(), io.BytesIO()
-    words = Paragraph('<font size="9">Rechtsassistentin</font><br/><font size="15" color="#075442"><b>Schimmelpilz</b></font><br/><font size="7" color="#4a5559">' + CLAIM + '</font>', styles['BodyText'])
-    head = Table([[Image(str(MARK), 15 * mm, 15 * mm), words]], colWidths=[18 * mm, None])
-    head.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('LINEBELOW', (0, 0), (-1, 0), 0.6, '#d9d2c4'), ('BOTTOMPADDING', (0, 0), (-1, -1), 6)]))
+    head = Table([[Image(str(LOGO), 62 * mm, 62 * mm * LOGO_RATIO)]], colWidths=[None], hAlign='LEFT')
+    head.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'LEFT'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('LINEBELOW', (0, 0), (-1, 0), 0.6, '#d9d2c4'), ('BOTTOMPADDING', (0, 0), (-1, -1), 6)]))
     story = [head, Spacer(1, 10)]
     for style, text in blocks:
         story.append(Paragraph(escape(str(text)).replace('\n', '<br/>'), styles[style]))
@@ -156,10 +156,7 @@ def blocks_docx(title, blocks, note):
     doc.styles['Normal'].font.name = 'Arial'
     doc.styles['Normal'].font.size = Pt(11)
     header = doc.sections[0].header.paragraphs[0]
-    header.add_run().add_picture(str(MARK), width=Mm(12))
-    header.add_run('  Rechtsassistentin ').font.size = Pt(9)
-    name = header.add_run('Schimmelpilz')
-    name.bold, name.font.size, name.font.color.rgb = True, Pt(12), RGBColor(0x07, 0x54, 0x42)
+    header.add_run().add_picture(str(LOGO), width=Mm(55))
     levels = {'Title': 0, 'Heading2': 2, 'Heading3': 3}
     for style, text in blocks:
         if style in levels:

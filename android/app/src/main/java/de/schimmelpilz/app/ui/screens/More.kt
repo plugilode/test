@@ -124,7 +124,7 @@ fun MoreScreen(state: AppState) {
             Icon(Icons.AutoMirrored.Outlined.Logout, null, tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(8.dp))
             Text(tr("Abmelden", "Sign out"), color = MaterialTheme.colorScheme.error)
         }
-        BrandLockup(Modifier.padding(top = 8.dp), scale = 0.85f)
+        BrandLockup(Modifier.padding(top = 8.dp), scale = 0.85f, fullWidth = 240.dp)
         Text("$BRAND ${BuildConfig.VERSION_NAME} · " + tr("Allgemeine Rechtsinformation, keine anwaltliche Beratung im Einzelfall.", "General legal information, not individual legal advice."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 24.dp))
     }

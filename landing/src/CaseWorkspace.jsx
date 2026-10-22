@@ -47,7 +47,7 @@ export function CaseWorkspace({ lang, t, activeTab, setActiveTab, onFile, onDraf
 
   return <div className={`workspace-shell ${appMode ? "app-workspace" : ""}`} id="preview">
     <div className="workspace-sidebar">
-      <BrandLogo lang={lang} compact />
+      <BrandLogo />
       <div className="workspace-nav">{tabs.map(([id, label, Icon]) => <button key={id} aria-label={label} className={activeTab === id ? "selected" : ""} onClick={() => setActiveTab(id)}><Icon size={18} />{label}</button>)}</div>
       <div className="sidebar-foot">{t.localStorage}</div>
     </div>

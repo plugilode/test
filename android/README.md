@@ -63,10 +63,9 @@ und sind deshalb nicht Teil des Durchgangs.
 
 ## Vor der Veröffentlichung im Play Store
 
-- Logo und App-Symbol stammen aus dem Entwurf (Bildmarke ca. 140 px). Für das Play-Store-Symbol
-  (`store/icon-512.png`, hochskaliert) und Druck eine Originaldatei mit mindestens 1024 px oder als
-  SVG nachliefern; dann `res/drawable-nodpi/logo_mark.webp` und `res/mipmap-*/ic_launcher_foreground.webp`
-  daraus neu erzeugen.
+- Logo: Gesamt-Logo (`res/drawable-nodpi/logo_full.webp`) und Bildmarke (`logo_mark.webp`, auch App-Symbol
+  und `store/icon-512.png`) stammen aus der Logo-Datei (2000 × 781 px). Bei einer neuen Fassung alle drei
+  sowie `res/mipmap-*/ic_launcher_foreground.webp` daraus neu erzeugen.
 
 - Abos: Käufe in der App müssten über Google Play Billing laufen. Die App verkauft daher
   nichts selbst und verweist für Abos auf die Web-App; vor einem In-App-Verkauf Play
