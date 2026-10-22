@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator, model_validator
 from .fee_tables import FeeBasis, lookup
+from .dates import display_date
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
@@ -255,16 +256,16 @@ def router(db, require_user, now, record_activity):
             story.append(Spacer(1, 6))
         paragraph('Schimmelpilz · ' + ('Kostenprüfung' if de else 'Cost review'), 'Title')
         paragraph(inv['title'], 'Heading2')
-        paragraph(f"{item['case_reference']} · {item['case_title']} · Version {item['version']} · {item['updated_at']}")
+        paragraph(f"{item['case_reference']} · {item['case_title']} · Version {item['version']} · {display_date(item['updated_at'], de)}")
         kinds = {'invoice': 'Rechnung', 'lawyer': 'Anwaltsrechnung', 'court': 'Gerichtskosten', 'operating': 'Betriebskosten'} if de else {'invoice': 'Invoice', 'lawyer': 'Lawyer invoice', 'court': 'Court costs', 'operating': 'Operating costs'}
-        paragraph(f"{inv['issuer']} · {inv['invoice_number']} · {inv['invoice_date'] or '-'} · {kinds[inv['kind']]}")
+        paragraph(f"{inv['issuer']} · {inv['invoice_number']} · {display_date(inv['invoice_date'], de)} · {kinds[inv['kind']]}")
         paragraph(('Rechenprüfung anhand manueller Eingaben. Keine rechtliche Freigabe.' if de else 'Arithmetic check using manual inputs. No legal approval.'))
         for idx, (line, checked) in enumerate(zip(inv['lines'], result['lines']), 1):
             paragraph(f"{idx}. {line['description']}: {line['quantity']} × {line['unit_net']} = {checked['net']} {inv['currency']}; {line['tax_rate']}%", 'Heading3')
             paragraph(f"{'Rechnungsnetto / Differenz' if de else 'Billed net / difference'}: {line['billed_net'] or '-'} / {checked['difference'] or '-'}; {'Beleg' if de else 'Evidence'}: {line['evidence'] or '-'}")
             source=checked.get('fee_source')
             if source:
-                paragraph(f"{source['source']['citation']} · {source['version']} · 1.0: {source['base_fee']} EUR · {'Wertstufe' if de else 'Value bracket'}: {source['bracket']} EUR · {'Quellen geprüft' if de else 'Sources checked'}: {source['source_checked_on']}")
+                paragraph(f"{source['source']['citation']} · {source['version']} · 1.0: {source['base_fee']} EUR · {'Wertstufe' if de else 'Value bracket'}: {source['bracket']} EUR · {'Quellen geprüft' if de else 'Sources checked'}: {display_date(source['source_checked_on'], de)}")
                 paragraph(source['source']['table']+'\n'+source['source']['transition']+'\n'+source['applicability_note']+'\nSHA-256: '+source['table_sha256'])
         for group in result['tax_groups']:
             paragraph(f"{'Steuer auf netto' if de else 'Tax on net'} {group['net']} {inv['currency']} × {group['rate']}% = {group['tax']} {inv['currency']}")

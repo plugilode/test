@@ -4,6 +4,7 @@ import { request, readPreference, writePreference } from "./useCaseStorage.js";
 import { dateLabel, localToday } from "./workbench.js";
 import "./account-settings.css";
 
+import { DateInput } from "./DateInput";
 const STATES = [["BW", "Baden-Württemberg"], ["BY", "Bayern"], ["BE", "Berlin"], ["BB", "Brandenburg"], ["HB", "Bremen"], ["HH", "Hamburg"], ["HE", "Hessen"], ["MV", "Mecklenburg-Vorpommern"], ["NI", "Niedersachsen"], ["NW", "Nordrhein-Westfalen"], ["RP", "Rheinland-Pfalz"], ["SL", "Saarland"], ["SN", "Sachsen"], ["ST", "Sachsen-Anhalt"], ["SH", "Schleswig-Holstein"], ["TH", "Thüringen"]];
 const STATE_KEY = "schimmelpilz.deadlineState";
 
@@ -53,7 +54,7 @@ export function DeadlineCalculator({ lang, cases, caseId = "", saveTask }) {
   };
   return <section className="desk-panel deadline-calculator"><div className="desk-panel-heading"><div><h2><IconCalculator size={18} /> {c.title}</h2><p>{c.intro}</p></div></div>
     <form className="desk-task-form" onSubmit={submit}><fieldset disabled={busy}><div className="desk-form-grid">
-      <label>{c.start}<input name="start_date" type="date" required defaultValue={localToday()} /></label>
+      <label>{c.start}<DateInput name="start_date" required defaultValue={localToday()} /></label>
       <label>{c.amount}<input name="amount" type="number" min={1} max={1000} required defaultValue={2} /></label>
       <label>{c.unit}<select name="unit" defaultValue="weeks">{Object.entries(c.units).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
       <label>{c.type}<select name="start_type" defaultValue="event"><option value="event">{c.event}</option><option value="day_start">{c.dayStart}</option></select></label>

@@ -5,6 +5,7 @@ import { dateLabel, matches } from './workbench.js';
 import './cost-review.css';
 import { FeeLookup } from './FeeLookup.jsx';
 
+import { DateInput } from "./DateInput";
 const newLine = () => ({description:'',quantity:'1',unit_net:'',tax_rate:'0',billed_net:'',evidence:''});
 const blank = () => ({title:'',kind:'invoice',issuer:'',invoice_number:'',invoice_date:'',document_id:'',basis:'',notes:'',currency:'EUR',credit_gross:'0',billed_total:'',lines:[newLine()]});
 const kinds = {de:{invoice:'Verbraucher- / Geschäftsrechnung',lawyer:'Anwaltsrechnung',court:'Gerichtskosten',operating:'Betriebskosten'},en:{invoice:'Consumer / business invoice',lawyer:'Lawyer invoice',court:'Court costs',operating:'Operating costs'}};
@@ -75,7 +76,7 @@ export function CostReview({ lang, cases, caseId='', query='', open, onChanged, 
         <label>{de?'Rechnungsart':'Invoice type'}<select value={form.kind} onChange={e=>set('kind',e.target.value)}>{Object.entries(kinds[lang]).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
         <label>{de?'Aussteller':'Issuer'}<input maxLength={160} value={form.issuer} onChange={e=>set('issuer',e.target.value)}/></label>
         <label>{de?'Rechnungsnummer':'Invoice number'}<input maxLength={100} value={form.invoice_number} onChange={e=>set('invoice_number',e.target.value)}/></label>
-        <label>{de?'Rechnungsdatum':'Invoice date'}<input type="date" value={form.invoice_date} onChange={e=>set('invoice_date',e.target.value)}/></label>
+        <label>{de?'Rechnungsdatum':'Invoice date'}<DateInput value={form.invoice_date} onChange={e=>set('invoice_date',e.target.value)}/></label>
         <label>{de?'Beleg aus der E-Akte':'Document from electronic file'}<select value={form.document_id} onChange={e=>set('document_id',e.target.value)}><option value="">{de?'Kein Dokument verknüpft':'No document linked'}</option>{(selected?.documents||[]).map(doc=><option key={doc.id} value={doc.id}>{doc.name||doc.original_name}</option>)}</select></label>
         <label>{de?'Währung':'Currency'}<select value={form.currency} onChange={e=>set('currency',e.target.value)}>{['EUR','USD','MXN'].map(value=><option key={value}>{value}</option>)}</select></label>
       </div>

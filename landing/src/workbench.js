@@ -15,7 +15,30 @@ export function localToday(value = new Date()) {
 export function dateLabel(value, lang, includeTime = false) {
   if (!value) return "—";
   const date = new Date(value.length === 10 ? `${value}T12:00:00` : value);
-  return includeTime ? date.toLocaleString(lang === "de" ? "de-DE" : "en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : date.toLocaleDateString(lang === "de" ? "de-DE" : "en-GB");
+  return includeTime ? date.toLocaleString(lang === "de" ? "de-DE" : "en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : date.toLocaleDateString(lang === "de" ? "de-DE" : "en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+// Typed dates: German TT.MM.JJJJ (English UI DD/MM/YYYY); the API keeps ISO YYYY-MM-DD.
+export function formatDateInput(iso, lang) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+  if (!match) return "";
+  return lang === "de" ? `${match[3]}.${match[2]}.${match[1]}` : `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+export function parseDateInput(text) {
+  const value = (text || "").trim();
+  if (!value) return "";
+  let day, month, year;
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value);
+  const local = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})$/.exec(value);
+  if (iso) [, year, month, day] = iso.map(Number);
+  else if (local) {
+    [, day, month, year] = local.map(Number);
+    if (year < 100) year += 2000;
+  } else return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 export function matches(query, ...values) {

@@ -7,6 +7,7 @@ import { confirmDelete } from './DeskComponents.jsx';
 import { MailboxImport } from './MailboxImport.jsx';
 import './inbox.css';
 
+import { DateInput } from "./DateInput";
 const fields = item => ({subject:item?.subject || '', sender:item?.sender || '',received_on:item?.received_on || localToday(),note:item?.note || ''});
 
 function IncomingFields({ value, onChange, de }) {
@@ -14,7 +15,7 @@ function IncomingFields({ value, onChange, de }) {
   return <div className="intake-grid">
     <label>{de ? 'Betreff (optional)' : 'Subject (optional)'}<input maxLength={160} value={value.subject} onChange={e=>set('subject',e)}/></label>
     <label>{de ? 'Absender (optional)' : 'Sender (optional)'}<input maxLength={160} value={value.sender} onChange={e=>set('sender',e)}/></label>
-    <label>{de ? 'Eingangsdatum (manuell) *' : 'Received date (manual) *'}<input type="date" required value={value.received_on} onChange={e=>set('received_on',e)}/></label>
+    <label>{de ? 'Eingangsdatum (manuell) *' : 'Received date (manual) *'}<DateInput required value={value.received_on} onChange={e=>set('received_on',e)}/></label>
     <label>{de ? 'Interner Vermerk (optional)' : 'Internal note (optional)'}<textarea rows={2} maxLength={2000} value={value.note} onChange={e=>set('note',e)}/></label>
   </div>;
 }

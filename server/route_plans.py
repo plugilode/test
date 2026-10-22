@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 from .letterheads import compose_pdf
+from .dates import display_date
 
 CHECKED='2026-10-13'
 RULES={
@@ -109,7 +110,7 @@ def body(plan,reference):
     if data['chosen_body']:parts.append(('Von Ihnen eingetragene Stelle, nicht verifiziert: ' if de else 'Body entered by you, not verified: ')+data['chosen_body'])
     parts.extend(result['missing'])
     for route in result['routes']:parts.extend([route['title'],route['goal'],route['next']])
-    parts.extend([('Belege' if de else 'Evidence'),data['evidence'],('Eigener Prüfvermerk' if de else 'Own review note'),data['review_note'],result['filing_notice'],('Quellenstand ' if de else 'Sources checked ')+result['source_checked_on']])
+    parts.extend([('Belege' if de else 'Evidence'),data['evidence'],('Eigener Prüfvermerk' if de else 'Own review note'),data['review_note'],result['filing_notice'],('Quellenstand ' if de else 'Sources checked ')+display_date(result['source_checked_on'],de)])
     parts.extend(source['label']+' · '+source['url'] for source in result['sources'])
     parts.append(result['court_directory'])
     return '\n\n'.join(parts)
