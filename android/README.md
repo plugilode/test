@@ -70,9 +70,7 @@ und sind deshalb nicht Teil des Durchgangs.
 - Abos: Käufe in der App müssten über Google Play Billing laufen. Die App verkauft daher
   nichts selbst und verweist für Abos auf die Web-App; vor einem In-App-Verkauf Play
   Billing anbinden und die Server-Abrechnung erweitern.
-- Store-Eintrag: Datenschutzerklärung-URL, Formular „Datensicherheit“ (Konto-, Dokument-
-  und Fragen-Daten werden an den eigenen Server übertragen), Inhaltseinstufung.
-- Kontolöschung: Play verlangt einen Weg zur Löschung des Kontos; die Web-App-Seite dafür
-  im Store-Eintrag verlinken.
+- Store-Eintrag: Texte, Grafiken und die Vorlage für „Datensicherheit“ liegen in `store/` (siehe `store/README.md`).
+- Kontolöschung: in der App unter Mehr → Konto löschen, im Web unter Kanzlei / Profil.
 
 Schrift: Plus Jakarta Sans (SIL Open Font License, siehe `licenses/`).
