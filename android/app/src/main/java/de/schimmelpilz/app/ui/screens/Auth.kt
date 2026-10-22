@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -62,7 +63,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.schimmelpilz.app.AppState
-import de.schimmelpilz.app.BuildConfig
+import de.schimmelpilz.app.Server
 import de.schimmelpilz.app.R
 import de.schimmelpilz.app.data.ApiException
 import de.schimmelpilz.app.ui.LoginLockup
@@ -73,7 +74,7 @@ import kotlinx.coroutines.launch
 
 /** Opens a page of the web app (registration, password reset, office modules) in the browser. */
 fun openWeb(context: android.content.Context, path: String = "") {
-    context.startActivity(Intent(Intent.ACTION_VIEW, (BuildConfig.API_BASE_URL.trimEnd('/') + "/" + path.trimStart('/')).toUri()))
+    context.startActivity(Intent(Intent.ACTION_VIEW, (Server.url(context).trimEnd('/') + "/" + path.trimStart('/')).toUri()))
 }
 
 @Composable
@@ -220,6 +221,33 @@ fun LoginScreen(state: AppState, onBack: () -> Unit) {
                 TextButton(onClick = { openWeb(context) }) { Text(tr("Passwort vergessen?", "Forgot password?")) }
                 TextButton(onClick = { openWeb(context) }) { Text(tr("Registrieren", "Register")) }
             }
+            ServerSetting(state)
+        }
+    }
+}
+
+/** Shows which server the app uses and lets the user point it at their own (e.g. a test server in the home network). */
+@Composable
+private fun ServerSetting(state: AppState) {
+    val server by state.server.collectAsState()
+    var editing by remember { mutableStateOf(false) }
+    var text by remember(server) { mutableStateOf(server.removeSuffix("/")) }
+    var invalid by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Dns, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(8.dp))
+            Text(tr("Server: ", "Server: ") + server.removeSuffix("/"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            TextButton(onClick = { editing = !editing }) { Text(if (editing) tr("Schließen", "Close") else tr("Ändern", "Change")) }
+        }
+        if (editing) {
+            OutlinedTextField(text, { text = it; invalid = false }, label = { Text(tr("Server-Adresse", "Server address")) }, singleLine = true, isError = invalid,
+                supportingText = { Text(if (invalid) tr("Keine gültige Adresse.", "Not a valid address.") else tr("z. B. kanzlei.example.de oder 192.168.1.20:8001", "e.g. kanzlei.example.com or 192.168.1.20:8001")) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done), modifier = Modifier.fillMaxWidth())
+            FilledTonalButton(onClick = {
+                val url = Server.normalize(text)
+                if (url == null) invalid = true else { state.setServer(url); editing = false }
+            }, modifier = Modifier.align(Alignment.End)) { Text(tr("Übernehmen", "Apply")) }
         }
     }
 }

@@ -25,7 +25,19 @@ Andere Server-Adresse für Debug-Builds: `-PdebugApiUrl=http://192.168.1.20:8001
 `SCHIMMELPILZ_DEBUG_API_URL`. Debug-Builds erlauben unverschlüsseltes HTTP nur zu
 `10.0.2.2`, `localhost` und `127.0.0.1`.
 
-## Release
+## Auf einem Handy testen (z. B. Pixel 6)
+
+1. Test-APK bauen: `./gradlew :app:assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`.
+2. Server im Heimnetz erreichbar starten, auf dem PC im Projektordner:
+   `python -m uvicorn server.app:app --host 0.0.0.0 --port 8001`
+   (Windows-Firewall für Port 8001 im privaten Netz erlauben). Konto vorher in der Web-App anlegen.
+3. APK aufs Handy kopieren und öffnen; Installation aus dieser Quelle einmalig erlauben.
+4. In der App auf „Los geht’s“, unten bei „Server“ auf „Ändern“ und die PC-Adresse eintragen,
+   z. B. `192.168.1.20:8001` (IP unter Windows mit `ipconfig`). Dann anmelden.
+
+Die Server-Adresse lässt sich in jeder Version auf der Anmeldeseite ändern. Test-Builds erlauben dafür
+unverschlüsseltes HTTP; Release-Builds nur HTTPS.
+
 
 Release-Builds sprechen nur HTTPS. Die Server-Adresse immer angeben (ohne Angabe steht dort der Platzhalter `https://example.com/`):
 
