@@ -65,7 +65,7 @@ import de.schimmelpilz.app.AppState
 import de.schimmelpilz.app.BuildConfig
 import de.schimmelpilz.app.R
 import de.schimmelpilz.app.data.ApiException
-import de.schimmelpilz.app.ui.BrandLockup
+import de.schimmelpilz.app.ui.WelcomeLockup
 import de.schimmelpilz.app.ui.errorText
 import de.schimmelpilz.app.ui.tr
 import kotlinx.coroutines.launch
@@ -96,10 +96,19 @@ fun WelcomeScreen(state: AppState, onLogin: () -> Unit) {
             .safeDrawingPadding().verticalScroll(rememberScrollState()).padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        LanguageSwitch(state, Modifier.align(Alignment.End).padding(end = 20.dp).size(width = 120.dp, height = 44.dp))
-        // The logo already shows the scene (Justitia, lawyer, Munich labour court), so it is the hero image here.
-        BrandLockup(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), scale = 1.4f, fullWidth = 440.dp)
-        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            WelcomeLockup(Modifier.weight(1f), scale = 0.92f)
+            LanguageSwitch(state, Modifier.size(width = 120.dp, height = 44.dp))
+        }
+        Image(
+            painterResource(R.drawable.welcome_illustration),
+            contentDescription = tr(
+                "Comic: Vor dem Arbeitsgericht München packt eine Anwältin in Robe und Flip-Flops die Justitia-Statue am Hals.",
+                "Comic: in front of the Munich labour court, a lawyer in a gown and flip-flops grabs the Justitia statue by the neck.",
+            ),
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
         Column(Modifier.padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 buildAnnotatedString {
@@ -177,7 +186,7 @@ fun LoginScreen(state: AppState, onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
         IconButton(onClick = onBack, modifier = Modifier.padding(top = 8.dp)) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, tr("Zurück", "Back")) }
-        BrandLockup(Modifier.padding(top = 8.dp), fullWidth = 260.dp)
+        WelcomeLockup(Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(24.dp))
         Text(tr("Anmelden", "Sign in"), style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))

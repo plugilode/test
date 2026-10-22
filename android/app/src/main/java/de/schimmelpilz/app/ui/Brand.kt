@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +57,24 @@ fun BrandLockup(modifier: Modifier = Modifier, compact: Boolean = false, scale: 
             Text("Rechtsassistentin", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.ExtraBold, fontSize = (16 * scale).sp, letterSpacing = (-0.01).em, lineHeight = (19 * scale).sp), color = MaterialTheme.colorScheme.onSurface)
             Text("Schimmelpilz", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.ExtraBold, fontSize = (23 * scale).sp, letterSpacing = (-0.02).em, lineHeight = (26 * scale).sp), color = MaterialTheme.colorScheme.primary)
             if (!compact) Text(claim, style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Medium, fontSize = (10.5 * scale).sp, lineHeight = (13 * scale).sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** Entry-screen header from the original design: portrait badge with name and claim as live text. */
+@Composable
+fun WelcomeLockup(modifier: Modifier = Modifier, scale: Float = 1f) {
+    val claim = brandClaim()
+    Row(
+        modifier.clearAndSetSemantics { contentDescription = "$BRAND – $claim" },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy((10 * scale).dp),
+    ) {
+        Image(painterResource(R.drawable.welcome_badge), contentDescription = null, modifier = Modifier.size((64 * scale).dp))
+        Column {
+            Text("Rechtsassistentin", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Bold, fontSize = (17 * scale).sp, letterSpacing = (-0.01).em, lineHeight = (20 * scale).sp), color = MaterialTheme.colorScheme.onSurface)
+            Text("Schimmelpilz", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.ExtraBold, fontSize = (24 * scale).sp, letterSpacing = (-0.02).em, lineHeight = (27 * scale).sp), color = MaterialTheme.colorScheme.primary)
+            Text(claim, style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Medium, fontSize = (10.5 * scale).sp, lineHeight = (13 * scale).sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
