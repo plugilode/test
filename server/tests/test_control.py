@@ -95,10 +95,29 @@ class ControlTests(test_inbox.InboxTests):
             self.assertEqual(blocked.status_code,403)
             self.assertEqual(client.put('/api/admin/system',json={**settings,'ai_enabled':True,'registrations_enabled':True,'expected_version':1}).status_code,200)
 
+    def test_starting_plan_follows_account_type(self):
+        with TestClient(api.app) as client:
+            client.headers['X-Schimmelpilz-Request']='1'
+            for audience,plan in [('consumer','personal'),('business','business'),('law_firm','firm')]:
+                payload={'email':f'plan-{audience}@example.invalid','password':'Synthetic-plan-password-2026!','audience':audience,'organisation':'Example only','full_name':'Synthetic Person','street':'Testweg 1','postal_code':'10115','city':'Berlin','country':'Deutschland'}
+                self.assertEqual(client.post('/api/auth/register',json=payload).status_code,201)
+                self.assertEqual(client.get('/api/billing').json()['plan'],plan)
+            # Untouched pilot rows written with the old 'personal' default are realigned on startup.
+            with api.db() as c:
+                c.execute("UPDATE subscriptions SET plan='personal'")
+                c.execute("UPDATE subscriptions SET trial_started='2026-01-01T00:00:00+00:00' WHERE user_id=(SELECT id FROM users WHERE email='plan-business@example.invalid')")
+                billing.migrate(c)
+                plans=dict(c.execute('SELECT u.email,s.plan FROM subscriptions s JOIN users u ON u.id=s.user_id').fetchall())
+            self.assertEqual(plans['plan-law_firm@example.invalid'],'firm')
+            self.assertEqual(plans['plan-business@example.invalid'],'personal')
+
     def test_trial_is_once_expiry_keeps_reads_and_operator_can_restore_pilot(self):
         with TestClient(api.app) as client:
             self.login(client);case=self.case(client);me=client.get('/api/auth/me').json()
             self.assertEqual(client.get('/api/billing').json()['effective_status'],'pilot')
+            self.assertEqual(client.post('/api/billing/trial',json={'plan':'firm'}).status_code,409)
+            self.assertEqual(client.get('/api/billing').json()['effective_status'],'pilot')
+            with api.db() as c:c.execute("UPDATE subscriptions SET status='expired' WHERE user_id=?",(me['id'],))
             trial=client.post('/api/billing/trial',json={'plan':'firm'})
             self.assertEqual(trial.status_code,200,trial.text)
             self.assertEqual(client.get('/api/billing').json()['effective_status'],'trial')

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from .control import audit, require_operator
 
 PLANS={'personal':990,'business':2990,'firm':4990}
+AUDIENCE_PLAN="CASE audience WHEN 'business' THEN 'business' WHEN 'law_firm' THEN 'firm' ELSE 'personal' END"
 
 
 def migrate(c):
@@ -24,10 +25,12 @@ def migrate(c):
         CREATE TABLE IF NOT EXISTS billing_orders(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),plan TEXT NOT NULL,session_id TEXT,created_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS billing_events(id TEXT PRIMARY KEY,event_type TEXT NOT NULL,received_at TEXT NOT NULL);
     ''')
+    # Pilot rows created before plans followed the account type still show 'personal'; nothing was chosen or paid for them yet.
+    c.execute(f"UPDATE subscriptions SET plan=(SELECT {AUDIENCE_PLAN} FROM users WHERE users.id=subscriptions.user_id) WHERE status='pilot' AND plan='personal' AND trial_started IS NULL AND subscription_id IS NULL")
 
 
 def ensure(c,user_id):
-    c.execute('INSERT OR IGNORE INTO subscriptions(user_id,updated_at) VALUES(?,?)',(user_id,datetime.now(UTC).isoformat()))
+    c.execute(f'INSERT OR IGNORE INTO subscriptions(user_id,plan,updated_at) SELECT id,{AUDIENCE_PLAN},? FROM users WHERE id=?',(datetime.now(UTC).isoformat(),user_id))
     return dict(c.execute('SELECT * FROM subscriptions WHERE user_id=?',(user_id,)).fetchone())
 
 
@@ -97,6 +100,8 @@ def router(db,require_user,now):
         with db() as c:
             c.execute('BEGIN IMMEDIATE');row=ensure(c,user['id'])
             if row['trial_started'] or row['subscription_id']:raise HTTPException(409,'Trial already used or subscription exists')
+            # A trial would replace unlimited free pilot access with a seven-day expiry.
+            if effective(row)=='pilot':raise HTTPException(409,'Pilot access is already free; no trial needed')
             end=(datetime.now(UTC)+timedelta(days=7)).isoformat()
             c.execute("UPDATE subscriptions SET plan=?,status='trial',trial_started=?,trial_end=?,updated_at=?,version=version+1 WHERE user_id=?",(payload.plan,now(),end,now(),user['id']))
             audit(c,user['id'],user['id'],'trial_started',payload.plan)
