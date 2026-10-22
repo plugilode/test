@@ -22,6 +22,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -57,6 +58,7 @@ class SessionCookieJar(private val prefs: SharedPreferences) : CookieJar {
 @Serializable private data class NewTask(val title: String, val due_on: String? = null, val priority: String = "normal", val note: String = "")
 @Serializable private data class EditTask(val title: String, val due_on: String? = null, val priority: String = "normal", val note: String = "", val completed: Boolean)
 @Serializable private data class Assign(val case_id: String, val expected_version: Int)
+@Serializable private data class DeleteAccount(val password: String, val confirm: String, val mfa_code: String? = null)
 
 class Api(baseUrl: String, private val cookies: SessionCookieJar) {
     private val base = baseUrl.toHttpUrl()
@@ -152,4 +154,25 @@ class Api(baseUrl: String, private val cookies: SessionCookieJar) {
     }
 
     suspend fun billing(): Billing = json.decodeFromString(call("GET", "api/billing"))
+
+    /** Deletes the account and all its data on the server (Google Play requires deletion inside the app). */
+    suspend fun deleteAccount(password: String, confirm: String, mfaCode: String?) {
+        call("POST", "api/auth/account/delete", body(DeleteAccount(password, confirm, mfaCode?.takeIf { it.isNotBlank() })))
+        cookies.clear()
+    }
+
+    /** Saves a server export (PDF, Word) to [target]. */
+    suspend fun download(path: String, target: File): File = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url(path)).get().build()
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw ApiException(response.code, detail(response.body?.string().orEmpty()))
+                target.parentFile?.mkdirs()
+                target.outputStream().use { out -> response.body!!.byteStream().copyTo(out) }
+                target
+            }
+        } catch (error: IOException) {
+            throw ApiException(0, "network")
+        }
+    }
 }

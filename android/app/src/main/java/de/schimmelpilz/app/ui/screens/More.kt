@@ -1,5 +1,15 @@
 package de.schimmelpilz.app.ui.screens
 
+import de.schimmelpilz.app.ui.errorText
+import androidx.compose.material.icons.outlined.DeleteForever
+import de.schimmelpilz.app.data.ApiException
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -67,7 +77,9 @@ fun MoreScreen(state: AppState) {
     val context = LocalContext.current
     val lang = LocalLang.current
     var billing by remember { mutableStateOf<Billing?>(null) }
+    var deleting by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { billing = runCatching { state.api.billing() }.getOrNull() }
+    if (deleting) DeleteAccountDialog(state, user?.mfaEnabled == true, onDismiss = { deleting = false })
 
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         ScreenTitle(tr("Mehr", "More"))
@@ -124,6 +136,10 @@ fun MoreScreen(state: AppState) {
             Icon(Icons.AutoMirrored.Outlined.Logout, null, tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(8.dp))
             Text(tr("Abmelden", "Sign out"), color = MaterialTheme.colorScheme.error)
         }
+        TextButton(onClick = { deleting = true }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Outlined.DeleteForever, null, tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(8.dp))
+            Text(tr("Konto löschen", "Delete account"), color = MaterialTheme.colorScheme.error)
+        }
         BrandLockup(Modifier.padding(top = 8.dp), scale = 0.85f, fullWidth = 240.dp)
         Text("$BRAND ${BuildConfig.VERSION_NAME} · " + tr("Allgemeine Rechtsinformation, keine anwaltliche Beratung im Einzelfall.", "General legal information, not individual legal advice."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 24.dp))
@@ -144,4 +160,58 @@ private fun Links(rows: List<Triple<ImageVector, String, String>>, onClick: () -
             }
         }
     }
+}
+
+/** Permanent deletion of the account and all its data, confirmed with the password (and code), as Google Play requires in-app. */
+@Composable
+private fun DeleteAccountDialog(state: AppState, mfa: Boolean, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val word = tr("LÖSCHEN", "DELETE")
+    var password by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    var needsCode by remember { mutableStateOf(mfa) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val messages = mapOf(
+        "password_incorrect" to tr("Das Passwort ist nicht korrekt.", "The password is incorrect."),
+        "mfa_code_required" to tr("Bitte den Bestätigungscode aus der Authenticator-App eingeben.", "Please enter the code from your authenticator app."),
+        "cancel_subscription_first" to tr("Bitte zuerst das laufende Abo in der Web-App kündigen.", "Please cancel the running subscription in the web app first."),
+        "last_administrator" to tr("Das letzte Administratorkonto kann nicht gelöscht werden.", "The last administrator account cannot be deleted."),
+    )
+    val generic = errorText("")
+    val offline = errorText("network")
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        icon = { Icon(Icons.Outlined.DeleteForever, null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text(tr("Konto endgültig löschen?", "Delete account permanently?")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(tr("Gelöscht werden Ihr Konto mit allen Akten, Dokumenten, Entwürfen, Fristen, Recherchen, Kontakten und Posteingängen. Das kann nicht rückgängig gemacht werden. Laden Sie vorher in der Web-App herunter, was Sie aufbewahren müssen.",
+                    "This deletes your account with all cases, documents, drafts, deadlines, research, contacts and inbox items. It cannot be undone. Download anything you must keep in the web app first."),
+                    style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(password, { password = it }, label = { Text(tr("Passwort", "Password")) }, singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
+                if (needsCode) OutlinedTextField(code, { code = it.trim() }, label = { Text(tr("Bestätigungscode", "Verification code")) }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(confirm, { confirm = it }, label = { Text(tr("Zur Bestätigung $word eingeben", "Type $word to confirm")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy && password.isNotEmpty() && confirm.trim() == word && (!needsCode || code.isNotBlank()), onClick = {
+                busy = true; error = null
+                scope.launch {
+                    try {
+                        state.api.deleteAccount(password, word, code)
+                        state.accountDeleted()
+                    } catch (e: ApiException) {
+                        if (e.detail == "mfa_code_required") needsCode = true
+                        error = messages[e.detail] ?: if (e.status == 0) offline else generic
+                    } finally { busy = false }
+                }
+            }) { Text(tr("Endgültig löschen", "Delete permanently"), color = MaterialTheme.colorScheme.error) }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(tr("Abbrechen", "Cancel")) } },
+    )
 }

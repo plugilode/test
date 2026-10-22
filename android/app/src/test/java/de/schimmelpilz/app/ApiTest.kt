@@ -89,4 +89,29 @@ class ApiTest {
         server.shutdown()
         try { api.cases(); fail() } catch (e: ApiException) { assertEquals(0, e.status) }
     }
+
+    @Test fun deleteAccountSendsConfirmationAndForgetsSession() = runTest {
+        prefs.values["cookies"] = mutableSetOf("http://localhost|schimmelpilz_session=abc; path=/")
+        server.enqueue(MockResponse().setResponseCode(403).setBody("""{"detail":"password_incorrect"}"""))
+        server.enqueue(MockResponse().setResponseCode(204))
+        try { api.deleteAccount("wrong", "LÖSCHEN", null); fail() } catch (e: ApiException) { assertEquals("password_incorrect", e.detail) }
+        assertTrue(prefs.values.containsKey("cookies"))
+        api.deleteAccount("right", "LÖSCHEN", "123456")
+        server.takeRequest()
+        val request = server.takeRequest()
+        assertEquals("/api/auth/account/delete", request.path)
+        assertEquals("1", request.getHeader("X-Schimmelpilz-Request"))
+        assertEquals("""{"password":"right","confirm":"LÖSCHEN","mfa_code":"123456"}""", request.body.readUtf8())
+        assertTrue(!prefs.values.containsKey("cookies"))
+    }
+
+    @Test fun downloadWritesFileAndReportsErrors() = runTest {
+        server.enqueue(MockResponse().setBody("%PDF-1.4 synthetic"))
+        server.enqueue(MockResponse().setResponseCode(404).setBody("""{"detail":"Answer not found"}"""))
+        val target = java.io.File.createTempFile("answer", ".pdf").also { it.delete() }
+        api.download("api/cases/c1/research/r1/answer.pdf?lang=de", target)
+        assertEquals("%PDF-1.4 synthetic", target.readText())
+        assertEquals("/api/cases/c1/research/r1/answer.pdf?lang=de", server.takeRequest().path)
+        try { api.download("api/cases/c1/research/x/answer.pdf", target); fail() } catch (e: ApiException) { assertEquals(404, e.status) }
+    }
 }

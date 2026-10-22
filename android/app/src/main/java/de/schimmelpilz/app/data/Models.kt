@@ -14,6 +14,7 @@ data class User(
     @SerialName("full_name") val fullName: String = "",
     val organisation: String = "",
     @SerialName("is_admin") val isAdmin: Boolean = false,
+    @SerialName("mfa_enabled") val mfaEnabled: Boolean = false,
 ) {
     val firstName: String get() = fullName.split(' ').firstOrNull { it.isNotBlank() && !it.endsWith('.') } ?: fullName
     val initials: String get() = fullName.split(' ').filter { it.isNotBlank() && !it.endsWith('.') }.take(2).joinToString("") { it.take(1).uppercase() }

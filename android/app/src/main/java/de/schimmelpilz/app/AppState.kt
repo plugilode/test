@@ -50,6 +50,9 @@ class AppState(app: Application) : AndroidViewModel(app) {
 
     fun signedIn(user: User) { _user.value = user; refresh() }
 
+    /** After the server deleted the account: forget everything locally, back to the welcome screen. */
+    fun accountDeleted() { _user.value = null; cases.value = emptyList(); inbox.value = emptyList() }
+
     fun signOut() = viewModelScope.launch {
         api.logout(); _user.value = null; cases.value = emptyList(); inbox.value = emptyList()
     }

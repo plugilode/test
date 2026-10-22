@@ -2,6 +2,9 @@ package de.schimmelpilz.app.ui.screens
 
 import android.content.ClipData
 import android.content.Intent
+import android.widget.Toast
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.core.net.toUri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,6 +31,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -86,6 +91,27 @@ fun ChatScreen(state: AppState, caseId: String, initialQuestion: String, onBack:
     var currentCase by remember { mutableStateOf(caseId) }
     val case = cases.firstOrNull { it.id == currentCase }
     val list = rememberLazyListState()
+    val context = LocalContext.current
+    var exporting by remember { mutableStateOf(false) }
+    val exportFailed = tr("Export hat nicht geklappt. Bitte erneut versuchen.", "Export failed. Please try again.")
+
+    /** Fetches the answer as PDF or Word from the server and hands it to the share sheet (mail, Drive, WhatsApp …). */
+    fun export(run: ResearchRun, extension: String) {
+        if (exporting) return
+        exporting = true
+        scope.launch {
+            try {
+                val name = "Schimmelpilz-Recherche-${case?.reference ?: "Antwort"}.$extension"
+                val file = state.api.download("api/cases/$currentCase/research/${run.id}/answer.$extension?lang=$lang", File(context.cacheDir, "exports/$name"))
+                val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
+                val mime = if (extension == "pdf") "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                val send = Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                context.startActivity(Intent.createChooser(send, name))
+            } catch (e: ApiException) {
+                Toast.makeText(context, exportFailed, Toast.LENGTH_LONG).show()
+            } finally { exporting = false }
+        }
+    }
 
     fun send(question: String) {
         if (question.trim().length < 3 || pending != null) return
@@ -122,7 +148,7 @@ fun ChatScreen(state: AppState, caseId: String, initialQuestion: String, onBack:
             items(runs, key = { it.id }) { run ->
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Question(run.question)
-                    Answer(run, onSource = { source = it })
+                    Answer(run, onSource = { source = it }, exporting = exporting, onExport = { ext -> export(run, ext) })
                 }
             }
             pending?.let { question ->
@@ -180,7 +206,7 @@ fun formatAnswer(text: String): AnnotatedString = buildAnnotatedString {
 }
 
 @Composable
-private fun Answer(run: ResearchRun, onSource: (LegalSource) -> Unit) {
+private fun Answer(run: ResearchRun, onSource: (LegalSource) -> Unit, exporting: Boolean, onExport: (String) -> Unit) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -216,6 +242,8 @@ private fun Answer(run: ResearchRun, onSource: (LegalSource) -> Unit) {
                 IconButton(onClick = {
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "${run.question}\n\n$answer"), null))
                 }) { Icon(Icons.Outlined.Share, tr("Teilen", "Share")) }
+                IconButton(enabled = !exporting, onClick = { onExport("pdf") }) { Icon(Icons.Outlined.PictureAsPdf, tr("Als PDF teilen", "Share as PDF")) }
+                IconButton(enabled = !exporting, onClick = { onExport("docx") }) { Icon(Icons.Outlined.Description, tr("Als Word-Datei teilen", "Share as Word file")) }
             }
         }
     }
