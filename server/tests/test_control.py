@@ -162,5 +162,34 @@ class ControlTests(test_inbox.InboxTests):
             self.assertEqual(client.get('/api/billing').json()['effective_status'],'canceled')
 
 
+    def test_payment_retry_grace_completed_orders_and_superseded_subscriptions(self):
+        config={'STRIPE_SECRET_KEY':'sk_test_synthetic','STRIPE_WEBHOOK_SECRET':'whsec_synthetic','PUBLIC_APP_URL':'https://example.invalid','STRIPE_PRICE_PERSONAL':'price_personal','STRIPE_PRICE_BUSINESS':'price_business','STRIPE_PRICE_FIRM':'price_firm'}
+        price={'unit_amount':990,'currency':'eur','recurring':{'interval':'month','interval_count':1},'tax_behavior':'inclusive'}
+        with patch.dict(os.environ,config),TestClient(api.app) as client:
+            self.login(client);case=self.case(client);me=client.get('/api/auth/me').json()
+            # Stripe is still retrying a failed renewal: work continues; once it gives up, writes stop.
+            with api.db() as c:c.execute("UPDATE subscriptions SET status='past_due',subscription_id='sub_new',customer_id='cus_synthetic' WHERE user_id=?",(me['id'],))
+            self.assertEqual(client.post(f'/api/cases/{case}/drafts',json={'body':'Synthetic draft during payment retry'}).status_code,201)
+            with api.db() as c:c.execute("UPDATE subscriptions SET status='unpaid' WHERE user_id=?",(me['id'],))
+            self.assertEqual(client.post(f'/api/cases/{case}/drafts',json={'body':'Synthetic draft after retries ended'}).status_code,402)
+            # A checkout that already produced a subscription is never handed out again.
+            with api.db() as c:
+                c.execute("UPDATE subscriptions SET status='canceled' WHERE user_id=?",(me['id'],))
+                c.execute("INSERT INTO billing_orders(id,user_id,plan,created_at,completed_at) VALUES('order-done',?,'personal',?,?)",(me['id'],billing.datetime.now(billing.UTC).isoformat(),billing.datetime.now(billing.UTC).isoformat()))
+            with patch.object(billing,'stripe',side_effect=[price,{'id':'cs_test_2','url':'https://checkout.stripe.com/synthetic'}]) as provider:
+                self.assertEqual(client.post('/api/billing/checkout',json={'plan':'personal','consent':True}).status_code,200)
+                order=provider.call_args.args[1]['subscription_data[metadata][order_id]']
+            self.assertNotEqual(order,'order-done')
+            # A late event about an older subscription is acknowledged without touching the current one.
+            with api.db() as c:c.execute("UPDATE subscriptions SET status='active',subscription_id='sub_new',period_end='2099-01-01T00:00:00+00:00' WHERE user_id=?",(me['id'],))
+            old={'id':'sub_old','customer':'cus_synthetic','status':'canceled','metadata':{'user_id':me['id'],'order_id':order},'items':{'data':[{'price':{'id':'price_personal'},'quantity':1,'current_period_end':int(time.time())}]}}
+            body=json.dumps({'id':'evt_old','type':'customer.subscription.deleted','data':{'object':{'id':'sub_old'}}}).encode();stamp=str(int(time.time()))
+            sig=hmac.new(config['STRIPE_WEBHOOK_SECRET'].encode(),stamp.encode()+b'.'+body,hashlib.sha256).hexdigest()
+            client.headers.pop('X-Schimmelpilz-Request',None)
+            with patch.object(billing,'stripe',return_value=old):
+                self.assertEqual(client.post('/api/billing/webhook',content=body,headers={'stripe-signature':f't={stamp},v1={sig}','Content-Type':'application/json'}).status_code,200)
+            status=client.get('/api/billing').json()
+            self.assertEqual(status['effective_status'],'active');self.assertTrue(status['has_subscription'])
+
 
 if __name__=='__main__':unittest.main()

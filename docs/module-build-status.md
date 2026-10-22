@@ -25,8 +25,8 @@ Updated 2026-10-15. User requests automatic implementation of all missing module
 | Statutory deadline calculator | Implemented calculation aid and validated | §§ 187, 188, 193 BGB / § 222 ZPO forward periods, statewide holidays 2015–2035, explanation steps, adoption as task; no backward periods or local holidays |
 | Draft email delivery | Implemented and validated; SMTP required | Explicitly confirmed sending of one saved version as PDF/DOCX, reply-to sender, evidence with attachment hash; not formal filing |
 | Email inbox import | Implemented and validated against a simulated IMAP server | Owner-configured IMAP, encrypted password, read-only fetch of unread mail, attachment import without automatic assignment, private-network hosts refused |
-| Supervised operation | Queued | Startup/restart supervision and monitoring remain operator setup |
-| Public-server deployment | Operator setup required | Host/domain/HTTPS, private runtime networks, measured capacity; no production host configured |
+| Supervised operation | Implemented in Docker Compose and validated locally (2026-10-22) | Health checks, restart policy, ordered start, daily verified encrypted backups; external uptime alerting remains operator setup ([production.md](production.md)) |
+| Public-server deployment | Stack validated locally over HTTPS; operator setup required | Host/domain, credentials, off-site backup copy and legal review per [production.md](production.md); no production host configured |
 | Subscriptions and seven-day trial | Trial/entitlements and Stripe adapter implemented; real provider setup and sandbox purchase required | Persistent plan/trial, explicit checkout, tested callbacks/cancellation; existing pilot stays free until consent |
 | Electronic court filing (beA/EGVP) | Not implementable without official access | Requires beA software certificates/access; email delivery above is not formal filing |
 
