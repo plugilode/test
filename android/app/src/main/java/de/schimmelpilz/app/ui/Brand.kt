@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
@@ -19,6 +20,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -76,5 +78,17 @@ fun WelcomeLockup(modifier: Modifier = Modifier, scale: Float = 1f) {
             Text("Schimmelpilz", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.ExtraBold, fontSize = (24 * scale).sp, letterSpacing = (-0.02).em, lineHeight = (27 * scale).sp), color = MaterialTheme.colorScheme.primary)
             Text(claim, style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Medium, fontSize = (10.5 * scale).sp, lineHeight = (13 * scale).sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+/** Sign-in header: the comic badge with name and claim centred below it. */
+@Composable
+fun LoginLockup(modifier: Modifier = Modifier) {
+    val claim = brandClaim()
+    Column(modifier.clearAndSetSemantics { contentDescription = "$BRAND – $claim" }, horizontalAlignment = Alignment.CenterHorizontally) {
+        Image(painterResource(R.drawable.login_logo), contentDescription = null, modifier = Modifier.height(150.dp))
+        Text("Rechtsassistentin", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, letterSpacing = (-0.01).em, lineHeight = 24.sp), color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 8.dp))
+        Text("Schimmelpilz", style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.ExtraBold, fontSize = 30.sp, letterSpacing = (-0.02).em, lineHeight = 33.sp), color = MaterialTheme.colorScheme.primary)
+        Text(claim, style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 15.sp, textAlign = TextAlign.Center), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
     }
 }

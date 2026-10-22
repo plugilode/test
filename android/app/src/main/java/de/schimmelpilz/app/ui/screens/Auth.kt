@@ -65,6 +65,7 @@ import de.schimmelpilz.app.AppState
 import de.schimmelpilz.app.BuildConfig
 import de.schimmelpilz.app.R
 import de.schimmelpilz.app.data.ApiException
+import de.schimmelpilz.app.ui.LoginLockup
 import de.schimmelpilz.app.ui.WelcomeLockup
 import de.schimmelpilz.app.ui.errorText
 import de.schimmelpilz.app.ui.tr
@@ -186,8 +187,8 @@ fun LoginScreen(state: AppState, onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
         IconButton(onClick = onBack, modifier = Modifier.padding(top = 8.dp)) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, tr("Zurück", "Back")) }
-        WelcomeLockup(Modifier.padding(top = 8.dp))
-        Spacer(Modifier.height(24.dp))
+        LoginLockup(Modifier.fillMaxWidth().padding(top = 4.dp))
+        Spacer(Modifier.height(16.dp))
         Text(tr("Anmelden", "Sign in"), style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
