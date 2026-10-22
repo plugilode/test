@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Four-pointed spark from the app design, centred in the 66 dp safe zone of a 108 dp adaptive icon. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#FFFFFF"
-        android:pathData="M54,28 C55.8,44 62,50.2 80,54 C62,57.8 55.8,64 54,80 C52.2,64 46,57.8 28,54 C46,50.2 52.2,44 54,28 Z" />
-    <path android:fillColor="#D9B27C"
-        android:pathData="M74,30 C74.5,33.5 75.8,34.8 79,35.3 C75.8,35.8 74.5,37.1 74,40.6 C73.5,37.1 72.2,35.8 69,35.3 C72.2,34.8 73.5,33.5 74,30 Z" />
-</vector>

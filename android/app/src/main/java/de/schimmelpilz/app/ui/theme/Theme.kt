@@ -58,7 +58,7 @@ private fun jakarta(weight: Int) = Font(
     variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
 )
 
-val Jakarta = FontFamily(jakarta(400), jakarta(500), jakarta(600), jakarta(700))
+val Jakarta = FontFamily(jakarta(400), jakarta(500), jakarta(600), jakarta(700), jakarta(800))
 
 private val base = Typography()
 private fun TextStyle.j() = copy(fontFamily = Jakarta)

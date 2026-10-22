@@ -22,6 +22,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
@@ -57,11 +59,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.schimmelpilz.app.AppState
 import de.schimmelpilz.app.BuildConfig
 import de.schimmelpilz.app.R
 import de.schimmelpilz.app.data.ApiException
+import de.schimmelpilz.app.ui.BrandLockup
 import de.schimmelpilz.app.ui.errorText
 import de.schimmelpilz.app.ui.tr
 import kotlinx.coroutines.launch
@@ -88,49 +92,56 @@ fun LanguageSwitch(state: AppState, modifier: Modifier = Modifier) {
 fun WelcomeScreen(state: AppState, onLogin: () -> Unit) {
     val context = LocalContext.current
     Column(
-        Modifier.fillMaxSize().background(Color(0xFFFCF9F4).takeIf { !isDark() } ?: MaterialTheme.colorScheme.background)
-            .safeDrawingPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 12.dp),
+        Modifier.fillMaxSize().background(Color(0xFFFEFBF7).takeIf { !isDark() } ?: MaterialTheme.colorScheme.background)
+            .safeDrawingPadding().verticalScroll(rememberScrollState()).padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        LanguageSwitch(state, Modifier.align(Alignment.End).size(width = 140.dp, height = 40.dp))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            BrandLockup(Modifier.weight(1f), scale = 0.92f)
+            LanguageSwitch(state, Modifier.size(width = 120.dp, height = 44.dp))
+        }
         Image(
             painterResource(R.drawable.welcome_illustration),
             contentDescription = tr(
-                "Eine Anwältin in Robe packt die bronzene Justitia-Statue am Hals.",
-                "A lawyer in a gown grabs the bronze Justitia statue by the neck.",
+                "Comic: Vor dem Arbeitsgericht München packt eine Anwältin in Robe die Justitia-Statue am Hals.",
+                "Comic: in front of the Munich labour court, a lawyer in a gown grabs the Justitia statue by the neck.",
             ),
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxWidth().height(310.dp).padding(top = 8.dp),
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         )
-        Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(tr("Recht verstehen.", "Understand the law.")) }
-                append("\n"); append(tr("Einfach fragen.", "Just ask."))
-            },
-            style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            tr(
-                "Stellen Sie Ihre Rechtsfrage in eigenen Worten – Schimmelpilz antwortet mit den passenden Gesetzen.",
-                "Ask your legal question in your own words – Schimmelpilz answers with the relevant statutes.",
-            ),
-            style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.weight(1f, fill = false).height(24.dp))
-        Button(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(50)) {
-            Text(tr("Los geht’s", "Get started"), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.size(8.dp)); Icon(Icons.AutoMirrored.Outlined.ArrowForward, null)
+        Column(Modifier.padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(tr("Recht verstehen.", "Understand the law.")) }
+                    append("\n"); append(tr("Einfach fragen.", "Just ask."))
+                },
+                style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold), textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                tr(
+                    "Stellen Sie Ihre Rechtsfrage in eigenen Worten – Schimmelpilz antwortet mit den passenden Gesetzen.",
+                    "Ask your legal question in your own words – Schimmelpilz answers with the relevant statutes.",
+                ),
+                style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(50)) {
+                Icon(Icons.Outlined.ChatBubbleOutline, null); Spacer(Modifier.size(12.dp))
+                Text(tr("Los geht’s", "Get started"), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.size(12.dp)); Icon(Icons.AutoMirrored.Outlined.ArrowForward, null)
+            }
+            Spacer(Modifier.height(10.dp))
+            FilledTonalButton(onClick = { openWeb(context) }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(50)) {
+                Icon(Icons.Filled.Person, null); Spacer(Modifier.size(10.dp))
+                Text(tr("Neues Konto im Browser erstellen", "Create an account in the browser"))
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                tr("Allgemeine Rechtsinformation, keine anwaltliche Beratung im Einzelfall.", "General legal information, not individual legal advice."),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+            )
         }
-        Spacer(Modifier.height(10.dp))
-        FilledTonalButton(onClick = { openWeb(context) }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(50)) {
-            Text(tr("Neues Konto im Browser erstellen", "Create an account in the browser"))
-        }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            tr("Allgemeine Rechtsinformation, keine anwaltliche Beratung im Einzelfall.", "General legal information, not individual legal advice."),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
-        )
     }
 }
 
@@ -175,7 +186,7 @@ fun LoginScreen(state: AppState, onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
         IconButton(onClick = onBack, modifier = Modifier.padding(top = 8.dp)) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, tr("Zurück", "Back")) }
-        Image(painterResource(R.drawable.brand_logo), contentDescription = "Schimmelpilz", modifier = Modifier.height(64.dp).padding(top = 8.dp))
+        BrandLockup(Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(24.dp))
         Text(tr("Anmelden", "Sign in"), style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))

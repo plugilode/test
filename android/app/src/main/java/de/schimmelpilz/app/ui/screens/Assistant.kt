@@ -54,6 +54,7 @@ import de.schimmelpilz.app.data.Dates
 import de.schimmelpilz.app.ui.Avatar
 import de.schimmelpilz.app.ui.LocalLang
 import de.schimmelpilz.app.ui.theme.LocalBrand
+import de.schimmelpilz.app.ui.BrandLockup
 import de.schimmelpilz.app.ui.tr
 
 @Composable
@@ -69,7 +70,7 @@ fun AssistantScreen(state: AppState, onAsk: (caseId: String, question: String) -
 
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Schimmelpilz", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            BrandLockup(Modifier.weight(1f), compact = true, scale = 0.82f)
             Avatar(user?.initials ?: "")
         }
         Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp), verticalArrangement = Arrangement.Center) {

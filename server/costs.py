@@ -166,7 +166,7 @@ def report_blocks(item, de):
     blocks = []
     def paragraph(value, style='BodyText'):
         blocks.append((style, str(value)))
-    paragraph('Schimmelpilz · ' + ('Kostenprüfung' if de else 'Cost review'), 'Title')
+    paragraph('Kostenprüfung' if de else 'Cost review', 'Title')
     paragraph(inv['title'], 'Heading2')
     paragraph(f"{item['case_reference']} · {item['case_title']} · Version {item['version']} · {display_date(item['updated_at'], de)}")
     kinds = {'invoice': 'Rechnung', 'lawyer': 'Anwaltsrechnung', 'court': 'Gerichtskosten', 'operating': 'Betriebskosten'} if de else {'invoice': 'Invoice', 'lawyer': 'Lawyer invoice', 'court': 'Court costs', 'operating': 'Operating costs'}

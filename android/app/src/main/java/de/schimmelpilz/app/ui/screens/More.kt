@@ -56,6 +56,8 @@ import de.schimmelpilz.app.data.Dates
 import de.schimmelpilz.app.ui.Avatar
 import de.schimmelpilz.app.ui.LocalLang
 import de.schimmelpilz.app.ui.SectionLabel
+import de.schimmelpilz.app.ui.BRAND
+import de.schimmelpilz.app.ui.BrandLockup
 import de.schimmelpilz.app.ui.tr
 
 @Composable
@@ -122,7 +124,8 @@ fun MoreScreen(state: AppState) {
             Icon(Icons.AutoMirrored.Outlined.Logout, null, tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(8.dp))
             Text(tr("Abmelden", "Sign out"), color = MaterialTheme.colorScheme.error)
         }
-        Text("Schimmelpilz ${BuildConfig.VERSION_NAME} · " + tr("Allgemeine Rechtsinformation, keine anwaltliche Beratung im Einzelfall.", "General legal information, not individual legal advice."),
+        BrandLockup(Modifier.padding(top = 8.dp), scale = 0.85f)
+        Text("$BRAND ${BuildConfig.VERSION_NAME} · " + tr("Allgemeine Rechtsinformation, keine anwaltliche Beratung im Einzelfall.", "General legal information, not individual legal advice."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 24.dp))
     }
 }

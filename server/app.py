@@ -69,7 +69,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Virtuelle Rechtsassistenz Schimmelpilz", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="Rechtsassistentin Schimmelpilz", version="0.4.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:4173", "http://127.0.0.1:4173"],
@@ -955,7 +955,7 @@ def research_blocks(case, run, de):
     """A saved answer with its question and the exact sources it was given, for PDF and Word."""
     def plain(text):
         return '\n'.join(('• ' + line[2:]) if line.startswith(('- ', '* ')) else line.lstrip('#').strip() if line.startswith('#') else line for line in (text or '').replace('**', '').split('\n'))
-    blocks = [('Title', 'Schimmelpilz · ' + ('Recherche' if de else 'Research')),
+    blocks = [('Title', 'Recherche' if de else 'Research'),
               ('BodyText', f"{case['reference']} · {case['title']} · {display_date(run['finished_at'] or run['created_at'], de)}"),
               ('BodyText', 'Allgemeine Rechtsinformation aus einer gespeicherten Antwort, keine anwaltliche Prüfung im Einzelfall.' if de else 'General legal information from a saved answer, not an individual legal review.'),
               ('Heading2', 'Frage' if de else 'Question'), ('BodyText', run['question']),
