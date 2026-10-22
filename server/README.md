@@ -32,6 +32,11 @@ Endpoints:
 - `POST /api/cases/{id}/drafts` with `{ "language", "recipient", "kind", "body", "research_run_id" }`. Kinds: `letter`, `claim`, `application`, `objection`, `response`. Only a basic letter can omit `body`.
 - `PUT /api/cases/{id}/drafts/{draft_id}` with `{ "body", "recipient", "kind", "language", "expected_version" }` stores the edited text and metadata. Optional `use_current_letterhead: true` adopts the currently active briefpaper version; otherwise the saved version is retained.
 - `POST /api/cases/{id}/drafts/preview-pdf` with `body`, optional `draft_id` and `use_current_letterhead` exports current editor text without saving it. `GET /api/cases/{id}/drafts/{draft_id}/pdf` exports the saved version.
+- `GET /api/cases/{id}/drafts/{draft_id}/docx` exports the saved version as an editable Word file (`X-Draft-Review-Status: editable-export`).
+- `GET /api/exports/{cases|tasks|contacts|inbox}.{csv|xlsx}?lang=de|en` exports a list. German CSV uses semicolons, a UTF-8 byte-order mark, decimal commas and TT.MM.JJJJ; Excel stores real dates and numbers. Text that starts with `=`, `+`, `-` or `@` is never turned into a formula. Case-scoped team members can export only `cases` and `tasks`, limited to their granted cases.
+- `GET /api/cost-reviews/{id}/report.{pdf|docx}` and `GET /api/cost-reviews/{id}/lines.{csv|xlsx}` (optional `version`, `lang`) export a cost review report or its lines and totals.
+- `GET /api/cases/{id}/route-plan/report.{pdf|docx}` (optional `version`) exports the procedural working paper.
+- `GET /api/cases/{id}/research/{run_id}/answer.{pdf|docx}` exports a completed research answer with its question, legal sources and supplied document passages.
 
 All case, document and draft routes require a signed-in account. Every write request, including login/register/logout, must include `X-Schimmelpilz-Request: 1`. The frontend includes the header and session cookie automatically.
 

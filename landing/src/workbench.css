@@ -71,3 +71,4 @@
 .date-input-picker{position:absolute;top:50%;right:2px;transform:translateY(-50%);width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;color:var(--green,#075442);cursor:pointer}
 .date-input-picker:hover{background:var(--sage,#dfe7de)}
 .date-input-native{position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0}
+.export-links{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#708169}.export-links .desk-link{font-weight:600}.desk-panel-heading .export-links{margin-left:auto}

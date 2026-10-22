@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconReceipt, IconPlus, IconTrash } from '@tabler/icons-react';
-import { request, API_BASE } from './useCaseStorage.js';
+import { request } from './useCaseStorage.js';
+import { DocumentLinks, SpreadsheetLinks } from './ExportLinks.jsx';
 import { dateLabel, matches } from './workbench.js';
 import './cost-review.css';
 import { FeeLookup } from './FeeLookup.jsx';
@@ -90,8 +91,8 @@ export function CostReview({ lang, cases, caseId='', query='', open, onChanged, 
       <div className="cost-actions"><button className="desk-button" value="calculate">{de?'Nachrechnen':'Calculate'}</button><button className="desk-button solid" value="save" disabled={!target}>{de?'Prüfung zur Akte speichern':'Save review to case'}</button><button type="button" className="desk-button" onClick={reset}>{de?'Neue Prüfung':'New review'}</button></div></fieldset></form>
       {error&&<p role="alert" className="storage-error">{error}</p>}{notice&&<p role="status" className="storage-notice">{notice}</p>}
       {result&&<Result result={result} form={form} lang={lang}/>}
-      {saved&&<div className="cost-actions"><a className="desk-button" href={`${API_BASE}/api/cost-reviews/${saved.id}/report.pdf?lang=${lang}&version=${saved.version}`} target="_blank" rel="noreferrer">{de?'Prüfbericht als PDF':'Review report as PDF'} · v{saved.version}</a>{onDraft&&<button className="desk-button" onClick={letter}>{de?'Klärungsanschreiben entwerfen':'Draft clarification letter'}</button>}</div>}
-      {versions.length>0&&<details><summary>{de?'Gespeicherte Fassungen':'Saved versions'} ({versions.length})</summary>{versions.map(row=><div className="cost-version" key={row.version}>v{row.version} · {dateLabel(row.saved_at,lang,true)} · {row.result.payable} {row.invoice.currency}<a href={`${API_BASE}/api/cost-reviews/${editing.id}/report.pdf?lang=${lang}&version=${row.version}`} target="_blank" rel="noreferrer">PDF</a></div>)}</details>}
+      {saved&&<div className="cost-actions"><DocumentLinks path={`/api/cost-reviews/${saved.id}/report`} query={`?version=${saved.version}`} lang={lang} label={`${de?'Prüfbericht':'Review report'} v${saved.version}`} /><SpreadsheetLinks path={`/api/cost-reviews/${saved.id}/lines`} query={`?version=${saved.version}`} lang={lang} label={de?'Positionen':'Lines'} />{onDraft&&<button className="desk-button" onClick={letter}>{de?'Klärungsanschreiben entwerfen':'Draft clarification letter'}</button>}</div>}
+      {versions.length>0&&<details><summary>{de?'Gespeicherte Fassungen':'Saved versions'} ({versions.length})</summary>{versions.map(row=><div className="cost-version" key={row.version}>v{row.version} · {dateLabel(row.saved_at,lang,true)} · {row.result.payable} {row.invoice.currency}<DocumentLinks path={`/api/cost-reviews/${editing.id}/report`} query={`?version=${row.version}`} lang={lang} /></div>)}</details>}
     </section>
     <section className="desk-panel"><div className="desk-panel-heading"><h2>{de?'Gespeicherte Kostenprüfungen':'Saved cost reviews'}</h2><button className="desk-link" disabled={busy} onClick={()=>reload()}>{de?'Aktualisieren':'Refresh'}</button></div>
       {loading&&<p role="status">{de?'Prüfungen werden geladen …':'Loading reviews …'}</p>}{loadError&&<p role="alert" className="storage-error">{de?'Prüfungen nicht erreichbar. Erneut aktualisieren.':'Reviews unavailable. Refresh to retry.'}</p>}

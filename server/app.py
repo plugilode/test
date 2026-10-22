@@ -37,6 +37,8 @@ from . import case_tools
 from . import calendar_export
 from . import fee_tables
 from . import route_plans
+from . import exports
+from .dates import display_date
 from . import ocr_routes
 from . import account
 from . import deletion
@@ -949,6 +951,44 @@ def research_row(row):
     return {**dict(row), **{key:json.loads(row[key]) for key in ('sources','document_selection','legal_sources','legal_selection','citation_audit','retrieval_report')}}
 
 
+def research_blocks(case, run, de):
+    """A saved answer with its question and the exact sources it was given, for PDF and Word."""
+    def plain(text):
+        return '\n'.join(('• ' + line[2:]) if line.startswith(('- ', '* ')) else line.lstrip('#').strip() if line.startswith('#') else line for line in (text or '').replace('**', '').split('\n'))
+    blocks = [('Title', 'Schimmelpilz · ' + ('Recherche' if de else 'Research')),
+              ('BodyText', f"{case['reference']} · {case['title']} · {display_date(run['finished_at'] or run['created_at'], de)}"),
+              ('BodyText', 'Allgemeine Rechtsinformation aus einer gespeicherten Antwort, keine anwaltliche Prüfung im Einzelfall.' if de else 'General legal information from a saved answer, not an individual legal review.'),
+              ('Heading2', 'Frage' if de else 'Question'), ('BodyText', run['question']),
+              ('Heading2', 'Antwort' if de else 'Answer'), ('BodyText', plain(run['answer']))]
+    legal = json.loads(run['legal_sources'] or '[]')
+    if legal:
+        blocks.append(('Heading2', 'Gesetzesquellen' if de else 'Legal sources'))
+        for source in legal:
+            blocks.append(('Heading3', f"[{source.get('citation_id', '')}] {source.get('title', '')}" + (f" · {source['pinpoint']}" if source.get('pinpoint') else '')))
+            blocks.append(('BodyText', source.get('text', '') + (' …' if source.get('truncated') else '')))
+            blocks.append(('BodyText', ' · '.join(part for part in [source.get('url', ''), (('Abgerufen ' if de else 'Retrieved ') + display_date(source['fetched_at'], de)) if source.get('fetched_at') else ''] if part)))
+    documents = json.loads(run['sources'] or '[]')
+    if documents:
+        blocks.append(('Heading2', 'Verwendete Dokumentstellen' if de else 'Document passages supplied'))
+        for source in documents:
+            unit = {'image': 'Bild' if de else 'Image', 'page': 'PDF-Seite' if de else 'PDF page'}.get(source.get('unit_kind'), 'DOCX-Abschnitt' if de else 'DOCX section')
+            blocks.append(('Heading3', f"{source.get('filename', '')} · {unit} {source.get('unit_no', '')}"))
+            blocks.append(('BodyText', source.get('text', '')))
+    return blocks
+
+
+@app.get('/api/cases/{case_id}/research/{run_id}/answer.{fmt}')
+def export_research_answer(case_id: str, run_id: str, fmt: Literal['pdf', 'docx'], lang: Literal['de', 'en'] | None = None, user: dict = Depends(require_user)):
+    case = get_case(case_id, user['id'])
+    with db() as connection:
+        run = connection.execute("SELECT * FROM research_runs WHERE id=? AND case_id=? AND status='completed'", (run_id, case_id)).fetchone()
+    if not run:
+        raise HTTPException(404, 'Answer not found')
+    de = (lang or run['language']) == 'de'
+    return exports.document_response(fmt, f"Schimmelpilz-Recherche-{case['reference']}", run['question'][:120], research_blocks(case, run, de),
+                                      'Editable export of a saved research answer. Not legal advice; changes made in Word are not reviewed.')
+
+
 @app.post("/api/cases/{case_id}/research", status_code=201)
 def research_chat(case_id: str, payload: ResearchInput, user: dict = Depends(require_user)) -> dict:
     case = get_case(case_id, user["id"])
@@ -1280,6 +1320,7 @@ app.include_router(case_tools.router(db, require_user, now, record_activity, row
 app.include_router(calendar_export.router(db, require_user, now))
 app.include_router(fee_tables.router(require_user))
 app.include_router(route_plans.router(db, require_user, now, record_activity))
+app.include_router(exports.router(db, require_user, now))
 app.include_router(ocr_routes.router(db, require_user, now, record_activity, get_case, get_document, document_text, lambda: UPLOAD_DIR, EXTRACTION_LOCK, ROOT))
 
 app.include_router(control.router(db,require_user,now,lambda:{'ai':ollama_status(),'ocr_available':document_ocr.available(),'catalogue':legal_catalogue.catalogue_status()}))

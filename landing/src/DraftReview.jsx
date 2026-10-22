@@ -55,10 +55,10 @@ export function DraftReview({lang,caseId,draft,dirty,busy,onUpdated}) {
     catch {setError(de ? 'Fassung nicht verfügbar.' : 'Version unavailable.');}
     finally {setWorking(false);}
   };
-  const download = async () => {
+  const download = async (format = 'pdf') => {
     setWorking(true);setError('');
-    try {await savedDraftPdf(`/cases/${caseId}/drafts/${draft.id}/pdf`,data.draft.version);}
-    catch {setError(de ? 'Gespeicherte PDF-Fassung nicht verfügbar oder bereits geändert. Entwurf erneut öffnen.' : 'Saved PDF version unavailable or changed. Reopen the draft.');}
+    try {await savedDraftPdf(`/cases/${caseId}/drafts/${draft.id}/${format}`,data.draft.version,format);}
+    catch {setError(de ? 'Gespeicherte Fassung nicht verfügbar oder bereits geändert. Entwurf erneut öffnen.' : 'Saved version unavailable or changed. Reopen the draft.');}
     finally {setWorking(false);}
   };
   if (!draft?.id) return <section className="draft-review-panel"><h3>{de ? 'Prüfung & Freigabe' : 'Review & approval'}</h3><p>{de ? 'Zuerst speichern. Danach können Sie diese Fassung mit ihren Originalpassagen prüfen und freigeben.' : 'Save first. Then review and approve this version with its original passages.'}</p></section>;
@@ -72,7 +72,8 @@ export function DraftReview({lang,caseId,draft,dirty,busy,onUpdated}) {
       {data.checks.map(item => <ReviewCheck key={`${data.draft.version}:${item.id}`} item={item} lang={lang} documents={data.source_context.sources || []} disabled={disabled || data.draft.review_status !== 'in_review'} onSave={(id,checked,value) => action('check',{check_id:id,checked,note:value})} />)}
       {data.draft.review_status === 'in_review' && <form className="draft-approval" onSubmit={event => {event.preventDefault();action('approve',{note,confirmed});}}><fieldset disabled={disabled}><label>{de ? 'Freigabevermerk' : 'Approval note'}<textarea rows={2} required minLength={20} maxLength={2500} value={note} onChange={event => setNote(event.target.value)} /></label><label><input type="checkbox" required checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />{de ? 'Ich bestätige meine eigene Prüfung dieser gespeicherten Fassung.' : 'I confirm my own review of this saved version.'}</label><button className="desk-button solid" type="submit" disabled={!data.can_approve || !confirmed || note.trim().length < 20}>{de ? 'Diese Fassung freigeben' : 'Approve this version'}</button></fieldset></form>}
       {data.draft.review_status === 'approved' && <div className="draft-approved-record"><p>{de ? 'Freigegeben durch' : 'Approved by'} <strong>{data.draft.approved_name}</strong> · v{data.draft.version} · {dateLabel(data.draft.approved_at,lang,true)}</p><button type="button" disabled={disabled} className="desk-button" onClick={() => action('reopen')}>{de ? 'Prüfung wieder öffnen' : 'Reopen review'}</button></div>}
-      <button type="button" disabled={disabled} className="desk-button" onClick={download}>{de ? 'Gespeicherte Fassung als PDF' : 'Download saved version as PDF'} · v{data.draft.version}</button>
+      <button type="button" disabled={disabled} className="desk-button" onClick={() => download('pdf')}>{de ? 'Gespeicherte Fassung als PDF' : 'Download saved version as PDF'} · v{data.draft.version}</button>
+      <button type="button" disabled={disabled} className="desk-button" title={de ? 'Bearbeitbare Word-Datei; Änderungen in Word gelten nicht als geprüft.' : 'Editable Word file; changes made in Word are not reviewed.'} onClick={() => download('docx')}>{de ? 'Als Word' : 'As Word'} · v{data.draft.version}</button>
       <details className="draft-version-history"><summary>{de ? 'Fassungen & Prüfverlauf' : 'Versions & review history'} ({data.versions.length})</summary>{data.versions.map(version => <div className="draft-version-row" key={version.version}><span>v{version.version} · {dateLabel(version.created_at,lang,true)} · {version.actor_name || (de ? 'Vorhandene Fassung übernommen' : 'Existing version retained')}</span><button type="button" disabled={working} className="desk-link" onClick={() => showVersion(version.version)}>{de ? 'Fassung ansehen' : 'View version'}</button></div>)}{historical && <article className="draft-historical"><h4>{de ? 'Gespeicherte Fassung' : 'Saved version'} {historical.version}</h4><small>SHA-256: {historical.sha256}</small><pre>{historical.snapshot.body}</pre></article>}<ol>{data.events.map(event => <li key={event.id}><strong>v{event.version} · {eventLabels[lang][event.action] || event.action}</strong> · {event.actor_name} · {dateLabel(event.created_at,lang,true)}{event.note && <p>{event.note}</p>}</li>)}</ol></details>
     </>}{error && <p className="storage-error" role="alert">{error}</p>}</section>;
 }
