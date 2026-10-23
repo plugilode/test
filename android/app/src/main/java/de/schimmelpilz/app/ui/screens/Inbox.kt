@@ -56,6 +56,7 @@ import de.schimmelpilz.app.data.InboxItem
 import de.schimmelpilz.app.ui.DateField
 import de.schimmelpilz.app.ui.LocalLang
 import de.schimmelpilz.app.ui.errorText
+import de.schimmelpilz.app.ui.rememberFileOpener
 import de.schimmelpilz.app.ui.tr
 import kotlinx.coroutines.launch
 
@@ -72,13 +73,14 @@ fun InboxScreen(state: AppState) {
     var message by remember { mutableStateOf<String?>(null) }
     val tooLarge = tr("Datei ist größer als 10 MB.", "File is larger than 10 MB.")
     val failed = tr("Das hat nicht geklappt. Bitte erneut versuchen.", "That did not work. Please try again.")
+    val files = rememberFileOpener(state.api)
     val docs = rememberDocumentActions(onFile = { pending = it }, onError = { message = if (it == "too_large") tooLarge else failed })
     val open = inbox.filter { it.caseId == null }
     val assigned = inbox.filter { it.caseId != null }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         ScreenTitle(tr("Posteingang", "Inbox"))
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (busy || files.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Button(onClick = docs.scan, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), contentPadding = PaddingValues(18.dp)) {
@@ -106,7 +108,7 @@ fun InboxScreen(state: AppState) {
             }
             val shown = if (view == 0) open else assigned
             if (shown.isEmpty()) item { Text(if (view == 0) tr("Keine offenen Eingänge.", "No unassigned items.") else tr("Noch nichts zugeordnet.", "Nothing assigned yet."), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            items(shown, key = { it.id }) { item -> InboxCard(item, lang, onAssign = { assigning = item }) }
+            items(shown, key = { it.id }) { item -> InboxCard(item, lang, onOpen = { files.open("api/inbox/${item.id}/download", item.name, false) }, onAssign = { assigning = item }) }
             item {
                 Text(tr("Zuordnung nur auf Ihre Bestätigung. Originaldateien bleiben unverändert erhalten.", "Assignment only on your confirmation. Original files are kept unchanged."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 16.dp))
@@ -157,8 +159,8 @@ fun InboxScreen(state: AppState) {
 }
 
 @Composable
-private fun InboxCard(item: InboxItem, lang: String, onAssign: () -> Unit) {
-    Surface(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+private fun InboxCard(item: InboxItem, lang: String, onOpen: () -> Unit, onAssign: () -> Unit) {
+    Surface(onClick = onOpen, shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row {
                 Box(Modifier.size(width = 44.dp, height = 54.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.errorContainer), contentAlignment = Alignment.Center) {

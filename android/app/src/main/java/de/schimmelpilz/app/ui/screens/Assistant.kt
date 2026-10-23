@@ -2,6 +2,7 @@ package de.schimmelpilz.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,7 +59,7 @@ import de.schimmelpilz.app.ui.BrandLockup
 import de.schimmelpilz.app.ui.tr
 
 @Composable
-fun AssistantScreen(state: AppState, onAsk: (caseId: String, question: String) -> Unit, onOpenDeadlines: () -> Unit) {
+fun AssistantScreen(state: AppState, onAsk: (caseId: String, question: String) -> Unit, onOpenDeadlines: () -> Unit, onOpenMore: () -> Unit) {
     val user by state.user.collectAsStateWithLifecycle()
     val cases by state.cases.collectAsStateWithLifecycle()
     val lang = LocalLang.current
@@ -71,7 +72,7 @@ fun AssistantScreen(state: AppState, onAsk: (caseId: String, question: String) -
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             BrandLockup(Modifier.weight(1f), compact = true, scale = 0.82f)
-            Avatar(user?.initials ?: "")
+            Avatar(user?.initials ?: "", modifier = Modifier.clip(CircleShape).clickable(onClickLabel = tr("Konto und Einstellungen", "Account and settings"), onClick = onOpenMore))
         }
         Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp), verticalArrangement = Arrangement.Center) {
             Text(

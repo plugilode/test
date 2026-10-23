@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.outlined.AddTask
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,6 +64,7 @@ import de.schimmelpilz.app.ui.Pill
 import de.schimmelpilz.app.ui.SectionLabel
 import de.schimmelpilz.app.ui.Spark
 import de.schimmelpilz.app.ui.errorText
+import de.schimmelpilz.app.ui.rememberFileOpener
 import de.schimmelpilz.app.ui.legalAreaLabel
 import de.schimmelpilz.app.ui.statusPill
 import de.schimmelpilz.app.ui.theme.LocalBrand
@@ -86,6 +89,7 @@ fun CaseDetailScreen(state: AppState, id: String, onBack: () -> Unit, onAsk: (St
     val uploadFailed = tr("Hochladen fehlgeschlagen.", "Upload failed.")
     val tooLarge = tr("Datei ist größer als 10 MB.", "File is larger than 10 MB.")
     val uploaded = tr("Dokument zur Akte hinzugefügt – der Text wird jetzt erkannt.", "Document added to the case – its text is being read now.")
+    val files = rememberFileOpener(state.api)
     val docs = rememberDocumentActions(
         onFile = { file ->
             busy = true; message = null
@@ -107,7 +111,7 @@ fun CaseDetailScreen(state: AppState, id: String, onBack: () -> Unit, onAsk: (St
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, tr("Zurück zu Akten", "Back to cases")) }
             Text(item?.reference ?: "", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
         }
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (busy || files.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (item == null) { Text(tr("Akte nicht gefunden.", "Case not found."), Modifier.padding(20.dp)); return@Column }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -150,7 +154,7 @@ fun CaseDetailScreen(state: AppState, id: String, onBack: () -> Unit, onAsk: (St
             when (tab) {
                 0 -> Overview(item, lang)
                 1 -> ListCard(item.documents.map { doc ->
-                    Triple(Icons.Outlined.Description, doc.name, Dates.label(doc.createdAt, lang) + " · " + when {
+                    ListRow(Icons.Outlined.Description, doc.name, Dates.label(doc.createdAt, lang) + " · " + when {
                         doc.historical != null -> tr("Historisch (berichtigt)", "Historical (corrected)")
                         doc.reading -> tr("Text wird erkannt …", "Reading text …")
                         doc.reviewedUnits > 0 -> tr("Text geprüft", "Text reviewed")
@@ -160,11 +164,17 @@ fun CaseDetailScreen(state: AppState, id: String, onBack: () -> Unit, onAsk: (St
                         doc.autoTextStatus == "ocr_unavailable" -> tr("Texterkennung auf dem Server nicht eingerichtet", "OCR not set up on the server")
                         doc.autoTextStatus == "failed" -> tr("Texterkennung fehlgeschlagen", "Text recognition failed")
                         else -> tr("Original gespeichert", "Original stored")
-                    })
+                    }, onClick = { files.open("api/cases/${item.id}/documents/${doc.id}/download", doc.name, false) },
+                        action = Icons.Outlined.Share to tr("Teilen", "Share"),
+                        onAction = { files.open("api/cases/${item.id}/documents/${doc.id}/download", doc.name, true) })
                 }, tr("Noch keine Dokumente.", "No documents yet."))
                 2 -> ListCard(item.drafts.map { d ->
-                    Triple(Icons.Outlined.EditNote, d.recipient.lineSequence().firstOrNull()?.ifBlank { null } ?: tr("Entwurf", "Draft"),
-                        tr("Fassung ", "Version ") + d.version + " · " + Dates.label(d.updatedAt ?: d.createdAt, lang) + " · " + reviewLabel(d.reviewStatus))
+                    val name = "Schriftsatz-${item.reference}-v${d.version}"
+                    ListRow(Icons.Outlined.EditNote, d.recipient.lineSequence().firstOrNull()?.ifBlank { null } ?: tr("Entwurf", "Draft"),
+                        tr("Fassung ", "Version ") + d.version + " · " + Dates.label(d.updatedAt ?: d.createdAt, lang) + " · " + reviewLabel(d.reviewStatus),
+                        onClick = { files.open("api/cases/${item.id}/drafts/${d.id}/pdf", "$name.pdf", false) },
+                        action = Icons.Outlined.Description to tr("Als Word-Datei teilen", "Share as Word file"),
+                        onAction = { files.open("api/cases/${item.id}/drafts/${d.id}/docx", "$name.docx", true) })
                 }, tr("Noch keine Schriftsätze. Entwürfe erstellen und bearbeiten Sie in der Web-App.", "No drafts yet. Create and edit drafts in the web app."))
                 else -> TaskList(state, item.tasks.sortedWith(compareBy({ it.completed }, { it.dueOn ?: "9999" })), cases, lang, onOpenCase = null)
             }
@@ -231,24 +241,30 @@ private fun Overview(item: CaseFile, lang: String) {
         )
         if (parties.isNotEmpty()) {
             SectionLabel(tr("Beteiligte", "Parties"))
-            ListCard(parties.map { Triple(null, it.first, it.second) }, "")
+            ListCard(parties.map { ListRow(null, it.first, it.second) }, "")
         }
         if (item.details.responsible.isNotBlank()) Text(tr("Bearbeitung: ", "Handled by: ") + item.details.responsible, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
+/** One line of a case list; rows with [onClick] open something, [action] is an extra icon button (share). */
+private class ListRow(val icon: ImageVector?, val title: String, val subtitle: String, val onClick: (() -> Unit)? = null,
+                      val action: Pair<ImageVector, String>? = null, val onAction: () -> Unit = {})
+
 @Composable
-private fun ListCard(rows: List<Triple<ImageVector?, String, String>>, empty: String) {
+private fun ListCard(rows: List<ListRow>, empty: String) {
     if (rows.isEmpty()) { Text(empty, color = MaterialTheme.colorScheme.onSurfaceVariant); return }
     Surface(shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column {
-            rows.forEachIndexed { index, (icon, title, subtitle) ->
-                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    icon?.let { Icon(it, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(12.dp)) }
-                    Column {
-                        Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
-                        if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            rows.forEachIndexed { index, row ->
+                Row(Modifier.fillMaxWidth().then(row.onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+                    .padding(start = 14.dp, end = 4.dp, top = 8.dp, bottom = 8.dp).heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+                    row.icon?.let { Icon(it, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(12.dp)) }
+                    Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
+                        Text(row.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                        if (row.subtitle.isNotBlank()) Text(row.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    row.action?.let { (icon, label) -> IconButton(onClick = row.onAction) { Icon(icon, label, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
                 }
                 if (index < rows.lastIndex) androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }

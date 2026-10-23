@@ -96,13 +96,13 @@ fun MoreScreen(state: AppState) {
         Text(tr("Diese Bereiche öffnen sich im Browser, mit demselben Konto.", "These sections open in the browser with the same account."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Links(listOf(
-            Triple(Icons.Outlined.Contacts, tr("Adressen", "Address book"), ""),
-            Triple(Icons.Outlined.EditNote, tr("Schriftverkehr & Entwürfe", "Correspondence & drafts"), ""),
-            Triple(Icons.AutoMirrored.Outlined.ReceiptLong, tr("Kostenprüfung", "Cost review"), ""),
-            Triple(Icons.Outlined.Balance, tr("Verfahrenswege", "Procedural routes"), ""),
-            Triple(Icons.Outlined.Groups, tr("Team & Rechte", "Team & access"), ""),
-            Triple(Icons.Outlined.Settings, tr("Profil, Briefpapier & Sicherheit", "Profile, letter paper & security"), ""),
-        )) { openWeb(context) }
+            Triple(Icons.Outlined.Contacts, tr("Adressen", "Address book"), "parties"),
+            Triple(Icons.Outlined.EditNote, tr("Schriftverkehr & Entwürfe", "Correspondence & drafts"), "drafts"),
+            Triple(Icons.AutoMirrored.Outlined.ReceiptLong, tr("Kostenprüfung", "Cost review"), "costs"),
+            Triple(Icons.Outlined.Balance, tr("Verfahrenswege", "Procedural routes"), "routes"),
+            Triple(Icons.Outlined.Groups, tr("Team & Rechte", "Team & access"), "team"),
+            Triple(Icons.Outlined.Settings, tr("Profil, Briefpapier & Sicherheit", "Profile, letter paper & security"), "account"),
+        )) { section -> openWeb(context, "?open=$section") }
 
         SectionLabel(tr("Abonnement", "Subscription"))
         Surface(shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
@@ -117,7 +117,7 @@ fun MoreScreen(state: AppState) {
                     else -> tr("Kein aktiver Zugang – Lesen bleibt möglich", "No active access – reading remains available")
                 }, style = MaterialTheme.typography.titleSmall)
                 Text(tr("Abos verwalten Sie derzeit in der Web-App.", "Subscriptions are currently managed in the web app."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { openWeb(context) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text(tr("Abo öffnen", "Open subscription")) }
+                TextButton(onClick = { openWeb(context, "?open=billing") }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text(tr("Abo öffnen", "Open subscription")) }
             }
         }
 
@@ -147,11 +147,11 @@ fun MoreScreen(state: AppState) {
 }
 
 @Composable
-private fun Links(rows: List<Triple<ImageVector, String, String>>, onClick: () -> Unit) {
+private fun Links(rows: List<Triple<ImageVector, String, String>>, onClick: (section: String) -> Unit) {
     Surface(shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column {
-            rows.forEachIndexed { index, (icon, label, _) ->
-                Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            rows.forEachIndexed { index, (icon, label, section) ->
+                Row(Modifier.fillMaxWidth().clickable { onClick(section) }.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(14.dp))
                     Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

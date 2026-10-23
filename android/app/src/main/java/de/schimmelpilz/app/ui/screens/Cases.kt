@@ -66,7 +66,7 @@ fun ScreenTitle(text: String, trailing: @Composable () -> Unit = {}) {
 }
 
 @Composable
-fun CasesScreen(state: AppState, onOpen: (String) -> Unit) {
+fun CasesScreen(state: AppState, onOpen: (String) -> Unit, onOpenDeadlines: () -> Unit) {
     val cases by state.cases.collectAsStateWithLifecycle()
     val lang = LocalLang.current
     var query by remember { mutableStateOf("") }
@@ -92,10 +92,10 @@ fun CasesScreen(state: AppState, onOpen: (String) -> Unit) {
                 }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Stat("${cases.size}", tr("Offene Akten", "Open cases"), Modifier.weight(1f))
-                        Stat("$week", tr("Fristen 7 Tage", "Due in 7 days"), Modifier.weight(1f), warn = week > 0)
-                        Stat("${cases.sumOf { c -> c.tasks.count { !it.completed } }}", tr("Aufgaben", "Tasks"), Modifier.weight(1f))
-                        Stat("${cases.sumOf { it.documents.size }}", tr("Dokumente", "Documents"), Modifier.weight(1f))
+                        Stat("${cases.size}", tr("Offene Akten", "Open cases"), Modifier.weight(1f)) { query = ""; filter = "all" }
+                        Stat("$week", tr("Fristen 7 Tage", "Due in 7 days"), Modifier.weight(1f), warn = week > 0, onClick = onOpenDeadlines)
+                        Stat("${cases.sumOf { c -> c.tasks.count { !it.completed } }}", tr("Aufgaben", "Tasks"), Modifier.weight(1f), onClick = onOpenDeadlines)
+                        Stat("${cases.sumOf { it.documents.size }}", tr("Dokumente", "Documents"), Modifier.weight(1f), onClick = null)
                     }
                 }
                 item {
@@ -117,10 +117,11 @@ fun CasesScreen(state: AppState, onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun Stat(value: String, label: String, modifier: Modifier, warn: Boolean = false) {
+private fun Stat(value: String, label: String, modifier: Modifier, warn: Boolean = false, onClick: (() -> Unit)?) {
     val brand = LocalBrand.current
     Column(
-        modifier.clip(RoundedCornerShape(16.dp)).background(if (warn) brand.warning else MaterialTheme.colorScheme.surfaceVariant).padding(vertical = 10.dp, horizontal = 6.dp),
+        modifier.clip(RoundedCornerShape(16.dp)).background(if (warn) brand.warning else MaterialTheme.colorScheme.surfaceVariant)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 10.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = if (warn) brand.onWarning else MaterialTheme.colorScheme.onSurface)

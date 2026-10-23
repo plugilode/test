@@ -134,7 +134,7 @@ fun WelcomeScreen(state: AppState, onLogin: () -> Unit) {
                 Spacer(Modifier.size(12.dp)); Icon(Icons.AutoMirrored.Outlined.ArrowForward, null)
             }
             Spacer(Modifier.height(10.dp))
-            FilledTonalButton(onClick = { openWeb(context) }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(50)) {
+            FilledTonalButton(onClick = { openWeb(context, "?open=register") }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(50)) {
                 Icon(Icons.Filled.Person, null); Spacer(Modifier.size(10.dp))
                 Text(tr("Neues Konto im Browser erstellen", "Create an account in the browser"))
             }
@@ -218,8 +218,8 @@ fun LoginScreen(state: AppState, onBack: () -> Unit) {
                 else Text(tr("Anmelden", "Sign in"), style = MaterialTheme.typography.titleMedium)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = { openWeb(context) }) { Text(tr("Passwort vergessen?", "Forgot password?")) }
-                TextButton(onClick = { openWeb(context) }) { Text(tr("Registrieren", "Register")) }
+                TextButton(onClick = { openWeb(context, "?open=forgot") }) { Text(tr("Passwort vergessen?", "Forgot password?")) }
+                TextButton(onClick = { openWeb(context, "?open=register") }) { Text(tr("Registrieren", "Register")) }
             }
             ServerSetting(state)
         }

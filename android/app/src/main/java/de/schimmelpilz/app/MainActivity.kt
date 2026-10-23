@@ -151,9 +151,9 @@ private fun SignedIn(state: AppState) {
     ) { padding ->
         NavHost(nav, startDestination = "assistant", modifier = Modifier.padding(padding)) {
             composable("assistant") {
-                AssistantScreen(state, onAsk = { caseId, question -> nav.navigate("chat/$caseId?q=${enc(question)}") }, onOpenDeadlines = { nav.goTab("deadlines") })
+                AssistantScreen(state, onAsk = { caseId, question -> nav.navigate("chat/$caseId?q=${enc(question)}") }, onOpenDeadlines = { nav.goTab("deadlines") }, onOpenMore = { nav.goTab("more") })
             }
-            composable("cases") { CasesScreen(state, onOpen = { nav.navigate("case/$it") }) }
+            composable("cases") { CasesScreen(state, onOpen = { nav.navigate("case/$it") }, onOpenDeadlines = { nav.goTab("deadlines") }) }
             composable("case/{id}", listOf(navArgument("id") { type = NavType.StringType })) { back ->
                 CaseDetailScreen(state, back.arguments?.getString("id")!!, onBack = { nav.popBackStack() }, onAsk = { nav.navigate("chat/$it") })
             }
