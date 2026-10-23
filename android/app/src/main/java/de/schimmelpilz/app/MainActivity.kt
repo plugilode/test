@@ -1,6 +1,13 @@
 package de.schimmelpilz.app
 
 import android.os.Bundle
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import de.schimmelpilz.app.ui.AnimatedSplash
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -59,6 +66,8 @@ class MainActivity : ComponentActivity() {
     private val state: AppState by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // System start screen first; it hands over to the animated splash on the first frame.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
@@ -78,10 +87,14 @@ class MainActivity : ComponentActivity() {
 private fun Root(state: AppState) {
     val checked by state.sessionChecked.collectAsStateWithLifecycle()
     val user by state.user.collectAsStateWithLifecycle()
-    when {
-        !checked -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        user == null -> SignedOut(state)
-        else -> SignedIn(state)
+    // Played once per app start (kept across rotation); stays until the stored session has been checked.
+    var introPlayed by rememberSaveable { mutableStateOf(false) }
+    Crossfade(targetState = introPlayed && checked, animationSpec = tween(450), label = "splash") { ready ->
+        when {
+            !ready -> AnimatedSplash(waiting = introPlayed && !checked, onFinished = { introPlayed = true })
+            user == null -> SignedOut(state)
+            else -> SignedIn(state)
+        }
     }
 }
 

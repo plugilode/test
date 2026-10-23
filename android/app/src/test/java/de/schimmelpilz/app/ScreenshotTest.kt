@@ -53,7 +53,7 @@ class ScreenshotTest {
             val at = IntArray(2).also { top.getLocationOnScreen(it) }
             canvas.save(); canvas.translate(at[0].toFloat(), at[1].toFloat()); top.draw(canvas); canvas.restore()
         }
-        File(folder!!).mkdirs()
+        File(folder!!, "$name.png").parentFile!!.mkdirs()
         File(folder, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
@@ -69,6 +69,10 @@ class ScreenshotTest {
         context.getSharedPreferences("schimmelpilz", Context.MODE_PRIVATE).edit().putString("lang", "de").putString("theme", "Light").commit()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity = it }
+            // Frames of the animated splash: paused clock, stepped by hand.
+            rule.mainClock.autoAdvance = false
+            repeat(24) { frame -> rule.mainClock.advanceTimeBy(90); shot("splash/frame-%02d".format(frame)) }
+            rule.mainClock.autoAdvance = true
             waitFor("Recht verstehen.", substring = true)
             shot("01-willkommen")
             tap("Los geht’s")
