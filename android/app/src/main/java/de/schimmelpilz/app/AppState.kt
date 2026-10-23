@@ -21,7 +21,7 @@ class SchimmelpilzApp : Application()
 
 /** The Schimmelpilz server the app talks to: chosen on the sign-in screen, else the build default. */
 object Server {
-    private val local = Regex("""^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)""")
+    private val local = Regex("""^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)""")
 
     fun url(context: Context): String =
         context.getSharedPreferences("schimmelpilz", Context.MODE_PRIVATE).getString("server", null) ?: BuildConfig.API_BASE_URL
@@ -47,7 +47,7 @@ class AppState(app: Application) : AndroidViewModel(app) {
         private set
 
     val lang = MutableStateFlow(prefs.getString("lang", null) ?: if (Locale.getDefault().language == "de") "de" else "en")
-    val themeMode = MutableStateFlow(runCatching { ThemeMode.valueOf(prefs.getString("theme", "System")!!) }.getOrDefault(ThemeMode.System))
+    val themeMode = MutableStateFlow(runCatching { ThemeMode.valueOf(prefs.getString("theme", "Light")!!) }.getOrDefault(ThemeMode.Light))
 
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user
