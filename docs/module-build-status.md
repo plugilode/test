@@ -15,7 +15,7 @@ Updated 2026-10-15. User requests automatic implementation of all missing module
 | Deadlines and reminders | Implemented calendar export and validated | Explicit manually entered dates, upcoming/overdue views, downloadable calendar reminders; legal deadline computation separate |
 | Jurisdiction and procedural routes | Implemented bounded working papers and validated | Case-linked working paper with supported rules, required facts and formal requirements; no guessed court or filing channel |
 | Statutory fee calculator | Implemented basic 2025 value-fee tables and validated | Dated sourced fee table, explicit applicability, bounded fee events and credits, independently checked examples |
-| OCR | Implemented and validated | Local page text generation, resource bounds, transcription review against original before research use |
+| OCR | Implemented and validated; automatic since 2026-10-23 | Local page text generation, resource bounds, transcription review against original before research use; every new upload, app scan and inbox assignment is read automatically (text layer, then OCR for photos and scanned pages) |
 | Inbox correction | Implemented and validated | Versioned reversible correction without losing original bytes or silently invalidating document/research snapshots |
 | Research quality and broader coverage | Implemented bounded extension | Public-source freshness, retrieval examples, missing/unknown citation handling, clearly stated jurisdiction coverage |
 | Shared firm workspace | Implemented and browser/API validated | Membership, staff/case permissions and revocation; account profile alone is not membership |

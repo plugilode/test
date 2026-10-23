@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -65,6 +66,7 @@ import de.schimmelpilz.app.ui.legalAreaLabel
 import de.schimmelpilz.app.ui.statusPill
 import de.schimmelpilz.app.ui.theme.LocalBrand
 import de.schimmelpilz.app.ui.tr
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
@@ -83,7 +85,7 @@ fun CaseDetailScreen(state: AppState, id: String, onBack: () -> Unit, onAsk: (St
     var message by remember { mutableStateOf<String?>(null) }
     val uploadFailed = tr("Hochladen fehlgeschlagen.", "Upload failed.")
     val tooLarge = tr("Datei ist größer als 10 MB.", "File is larger than 10 MB.")
-    val uploaded = tr("Dokument zur Akte hinzugefügt.", "Document added to the case.")
+    val uploaded = tr("Dokument zur Akte hinzugefügt – der Text wird jetzt erkannt.", "Document added to the case – its text is being read now.")
     val docs = rememberDocumentActions(
         onFile = { file ->
             busy = true; message = null
@@ -95,6 +97,10 @@ fun CaseDetailScreen(state: AppState, id: String, onBack: () -> Unit, onAsk: (St
         },
         onError = { message = if (it == "too_large") tooLarge else uploadFailed },
     )
+
+    // The server reads new uploads (OCR for photos and scans) after answering; refresh until it is done.
+    val reading = item?.documents?.any { it.reading } == true
+    LaunchedEffect(reading, cases) { if (reading) { delay(3000); state.refresh() } }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -146,8 +152,13 @@ fun CaseDetailScreen(state: AppState, id: String, onBack: () -> Unit, onAsk: (St
                 1 -> ListCard(item.documents.map { doc ->
                     Triple(Icons.Outlined.Description, doc.name, Dates.label(doc.createdAt, lang) + " · " + when {
                         doc.historical != null -> tr("Historisch (berichtigt)", "Historical (corrected)")
+                        doc.reading -> tr("Text wird erkannt …", "Reading text …")
                         doc.reviewedUnits > 0 -> tr("Text geprüft", "Text reviewed")
+                        doc.extractionStatus == "ready" && doc.ocrPages > 0 -> tr("Text per OCR erkannt, Prüfung offen", "Text recognised by OCR, review pending")
                         doc.extractionStatus == "ready" -> tr("Text erkannt, Prüfung offen", "Text extracted, review pending")
+                        doc.autoTextStatus == "no_text" -> tr("Kein Text erkannt", "No text recognised")
+                        doc.autoTextStatus == "ocr_unavailable" -> tr("Texterkennung auf dem Server nicht eingerichtet", "OCR not set up on the server")
+                        doc.autoTextStatus == "failed" -> tr("Texterkennung fehlgeschlagen", "Text recognition failed")
                         else -> tr("Original gespeichert", "Original stored")
                     })
                 }, tr("Noch keine Dokumente.", "No documents yet."))

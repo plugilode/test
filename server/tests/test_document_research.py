@@ -58,13 +58,15 @@ class DocumentResearchTests(unittest.TestCase):
         with TestClient(api.app) as client:
             self.login(client)
             case_id = self.case(client)
-            upload = client.post(f'/api/cases/{case_id}/documents', files={'file': ('invoice.pdf', synthetic_pdf(), 'application/pdf')})
+            # The automatic reading right after the upload is interrupted (worker timeout).
+            with patch.object(api.subprocess, 'run', side_effect=api.subprocess.TimeoutExpired('extract', 30)):
+                upload = client.post(f'/api/cases/{case_id}/documents', files={'file': ('invoice.pdf', synthetic_pdf(), 'application/pdf')})
             self.assertEqual(upload.status_code, 201, upload.text)
             document_id = upload.json()['id']
-            url = f'/api/cases/{case_id}/documents/{document_id}/extract'
-            with patch.object(api.subprocess, 'run', side_effect=api.subprocess.TimeoutExpired('extract', 30)):
-                failed = client.post(url).json()
+            url = f'/api/cases/{case_id}/documents/{document_id}/text'
+            failed = client.get(url).json()
             self.assertEqual((failed['extraction']['status'], failed['extraction']['error_code']), ('failed', 'extraction_failed'))
+            url = f'/api/cases/{case_id}/documents/{document_id}/extract'
             retried = client.post(url).json()
             self.assertEqual(retried['extraction']['status'], 'ready')
             self.assertIn('TEST-778', retried['units'][0]['original_text'])

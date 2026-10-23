@@ -47,7 +47,12 @@ data class CaseDocument(
     @SerialName("extraction_status") val extractionStatus: String? = null,
     @SerialName("reviewed_units") val reviewedUnits: Int = 0,
     @SerialName("inbox_reassigned_at") val historical: String? = null,
-)
+    /** Automatic reading after upload: queued, running, done, no_text, ocr_unavailable, failed, interrupted. */
+    @SerialName("auto_text_status") val autoTextStatus: String? = null,
+    @SerialName("auto_text_ocr_pages") val ocrPages: Int = 0,
+) {
+    val reading: Boolean get() = autoTextStatus == "queued" || autoTextStatus == "running"
+}
 
 @Serializable
 data class Draft(

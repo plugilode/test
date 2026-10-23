@@ -49,6 +49,7 @@ def delete_documents(connection, document_ids):
         connection.execute('UPDATE inbox_documents SET case_id=NULL,document_id=NULL,assigned_at=NULL,version=version+1 WHERE document_id=?', (document_id,))
         connection.execute('UPDATE cost_reviews SET document_id=NULL WHERE document_id=?', (document_id,))
         connection.execute('DELETE FROM document_ocr_runs WHERE document_id=?', (document_id,))
+        connection.execute('DELETE FROM document_auto_text WHERE document_id=?', (document_id,))
         connection.execute('DELETE FROM documents WHERE id=?', (document_id,))
     return [name for name in stored if not file_in_use(connection, name)]
 
