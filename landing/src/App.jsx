@@ -88,7 +88,7 @@ const emailLink = (() => {
 function Brand() { return <BrandLogo />; }
 
 // Courts in whose proceedings the assistant was used and improved (names stay German in both languages).
-const COURTS = ["Arbeitsgericht München", "Arbeitsgericht Offenbach", "Sozialgericht Köln", "Sozialgericht Essen", "Landgericht München", "Amtsgericht Wedding"];
+const COURTS = ["Arbeitsgericht München", "Arbeitsgericht Offenbach", "Sozialgericht Köln", "Landessozialgericht NRW", "Landgericht München I", "Amtsgericht Wedding"];
 
 function Dialog({ open, onClose, title, children, className = "", busy = false }) {
   const ref = useRef(null);
