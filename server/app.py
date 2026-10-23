@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager, contextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response as BinaryResponse
 from typing import Literal
@@ -37,6 +37,9 @@ from . import case_tools
 from . import calendar_export
 from . import fee_tables
 from . import route_plans
+from . import exports
+from . import auto_text
+from .dates import display_date
 from . import ocr_routes
 from . import account
 from . import deletion
@@ -67,7 +70,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Virtuelle Rechtsassistenz Schimmelpilz", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="Rechtsassistentin Schimmelpilz", version="0.4.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:4173", "http://127.0.0.1:4173"],
@@ -430,6 +433,7 @@ def init_db() -> None:
         case_tools.migrate(connection)
         route_plans.migrate(connection)
         ocr_routes.migrate(connection)
+        auto_text.migrate(connection)
         control.migrate(connection)
         billing.migrate(connection)
         account.migrate(connection)
@@ -763,9 +767,9 @@ def send_draft(case_id: str, draft_id: str, payload: DraftSendInput, user: dict 
 def row_case(row: sqlite3.Row, connection: sqlite3.Connection) -> dict:
     documents = connection.execute(
         """SELECT d.id, d.original_name, d.content_type, d.size_bytes, d.created_at, d.inbox_reassigned_at, d.inbox_correction_note,
-            e.status AS extraction_status, e.truncated AS extraction_truncated,
+            e.status AS extraction_status, e.truncated AS extraction_truncated, a.status AS auto_text_status, a.ocr_pages AS auto_text_ocr_pages,
             (SELECT COUNT(*) FROM document_pages p WHERE p.document_id=d.id AND p.reviewed_at IS NOT NULL) AS reviewed_units
-            FROM documents d LEFT JOIN document_extractions e ON e.document_id=d.id
+            FROM documents d LEFT JOIN document_extractions e ON e.document_id=d.id LEFT JOIN document_auto_text a ON a.document_id=d.id
             WHERE d.case_id = ? ORDER BY d.created_at""",
         (row["id"],),
     ).fetchall()
@@ -949,6 +953,44 @@ def research_row(row):
     return {**dict(row), **{key:json.loads(row[key]) for key in ('sources','document_selection','legal_sources','legal_selection','citation_audit','retrieval_report')}}
 
 
+def research_blocks(case, run, de):
+    """A saved answer with its question and the exact sources it was given, for PDF and Word."""
+    def plain(text):
+        return '\n'.join(('• ' + line[2:]) if line.startswith(('- ', '* ')) else line.lstrip('#').strip() if line.startswith('#') else line for line in (text or '').replace('**', '').split('\n'))
+    blocks = [('Title', 'Recherche' if de else 'Research'),
+              ('BodyText', f"{case['reference']} · {case['title']} · {display_date(run['finished_at'] or run['created_at'], de)}"),
+              ('BodyText', 'Allgemeine Rechtsinformation aus einer gespeicherten Antwort, keine anwaltliche Prüfung im Einzelfall.' if de else 'General legal information from a saved answer, not an individual legal review.'),
+              ('Heading2', 'Frage' if de else 'Question'), ('BodyText', run['question']),
+              ('Heading2', 'Antwort' if de else 'Answer'), ('BodyText', plain(run['answer']))]
+    legal = json.loads(run['legal_sources'] or '[]')
+    if legal:
+        blocks.append(('Heading2', 'Gesetzesquellen' if de else 'Legal sources'))
+        for source in legal:
+            blocks.append(('Heading3', f"[{source.get('citation_id', '')}] {source.get('title', '')}" + (f" · {source['pinpoint']}" if source.get('pinpoint') else '')))
+            blocks.append(('BodyText', source.get('text', '') + (' …' if source.get('truncated') else '')))
+            blocks.append(('BodyText', ' · '.join(part for part in [source.get('url', ''), (('Abgerufen ' if de else 'Retrieved ') + display_date(source['fetched_at'], de)) if source.get('fetched_at') else ''] if part)))
+    documents = json.loads(run['sources'] or '[]')
+    if documents:
+        blocks.append(('Heading2', 'Verwendete Dokumentstellen' if de else 'Document passages supplied'))
+        for source in documents:
+            unit = {'image': 'Bild' if de else 'Image', 'page': 'PDF-Seite' if de else 'PDF page'}.get(source.get('unit_kind'), 'DOCX-Abschnitt' if de else 'DOCX section')
+            blocks.append(('Heading3', f"{source.get('filename', '')} · {unit} {source.get('unit_no', '')}"))
+            blocks.append(('BodyText', source.get('text', '')))
+    return blocks
+
+
+@app.get('/api/cases/{case_id}/research/{run_id}/answer.{fmt}')
+def export_research_answer(case_id: str, run_id: str, fmt: Literal['pdf', 'docx'], lang: Literal['de', 'en'] | None = None, user: dict = Depends(require_user)):
+    case = get_case(case_id, user['id'])
+    with db() as connection:
+        run = connection.execute("SELECT * FROM research_runs WHERE id=? AND case_id=? AND status='completed'", (run_id, case_id)).fetchone()
+    if not run:
+        raise HTTPException(404, 'Answer not found')
+    de = (lang or run['language']) == 'de'
+    return exports.document_response(fmt, f"Schimmelpilz-Recherche-{case['reference']}", run['question'][:120], research_blocks(case, run, de),
+                                      'Editable export of a saved research answer. Not legal advice; changes made in Word are not reviewed.')
+
+
 @app.post("/api/cases/{case_id}/research", status_code=201)
 def research_chat(case_id: str, payload: ResearchInput, user: dict = Depends(require_user)) -> dict:
     case = get_case(case_id, user["id"])
@@ -1048,6 +1090,34 @@ def read_document_text(case_id: str, document_id: str, user: dict = Depends(requ
         return document_text(connection, document_id)
 
 
+def extract_stored(case_id, document):
+    """Reads the text layer of a stored PDF/DOCX once (caller holds EXTRACTION_LOCK); a transient crash may be retried."""
+    document_id = document["id"]
+    with db() as connection:
+        existing = connection.execute("SELECT status, error_code FROM document_extractions WHERE document_id=?", (document_id,)).fetchone()
+        if existing and not (existing["status"] == "failed" and existing["error_code"] == "extraction_failed"):
+            return
+    target = UPLOAD_DIR / document["stored_name"]
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="Stored file not found")
+    try:
+        worker = subprocess.run([sys.executable, "-m", "server.document_extraction", str(target.resolve())], cwd=ROOT, capture_output=True, timeout=30, check=True, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+        result = json.loads(worker.stdout)
+    except (subprocess.SubprocessError, ValueError, OSError):
+        result = {"status": "failed", "error_code": "extraction_failed", "unit_kind": "page" if target.suffix == ".pdf" else "section", "truncated": False, "units": []}
+    with db() as connection:
+        # A worker crash or timeout is transient: replace it on retry. Any other stored result is kept.
+        connection.execute("DELETE FROM document_extractions WHERE document_id=? AND status='failed' AND error_code='extraction_failed'", (document_id,))
+        # Another request may have completed before the lock was acquired.
+        if not connection.execute("SELECT 1 FROM document_extractions WHERE document_id=?", (document_id,)).fetchone():
+            connection.execute("INSERT INTO document_extractions(document_id,status,error_code,unit_kind,truncated,created_at) VALUES (?,?,?,?,?,?)", (document_id, result["status"], result["error_code"], result["unit_kind"], result["truncated"], now()))
+            connection.executemany("INSERT INTO document_pages(document_id,unit_no,original_text) VALUES (?,?,?)", [(document_id, unit["unit_no"], unit["text"]) for unit in result["units"]])
+            record_activity(connection, case_id, "document_extracted", document["original_name"])
+
+
+AUTO_TEXT = auto_text.AutoText(db, now, record_activity, lambda: UPLOAD_DIR, ROOT, EXTRACTION_LOCK, extract_stored)
+
+
 @app.post("/api/cases/{case_id}/documents/{document_id}/extract")
 def extract_document(case_id: str, document_id: str, user: dict = Depends(require_user)):
     get_case(case_id, user["id"])
@@ -1059,25 +1129,11 @@ def extract_document(case_id: str, document_id: str, user: dict = Depends(requir
     if not EXTRACTION_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=429, detail="extraction_busy")
     try:
-        target = UPLOAD_DIR / document["stored_name"]
-        if not target.is_file():
-            raise HTTPException(status_code=404, detail="Stored file not found")
-        try:
-            worker = subprocess.run([sys.executable, "-m", "server.document_extraction", str(target.resolve())], cwd=ROOT, capture_output=True, timeout=30, check=True, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
-            result = json.loads(worker.stdout)
-        except (subprocess.SubprocessError, ValueError, OSError):
-            result = {"status": "failed", "error_code": "extraction_failed", "unit_kind": "page" if target.suffix == ".pdf" else "section", "truncated": False, "units": []}
-        with db() as connection:
-            # A worker crash or timeout is transient: replace it on retry. Any other stored result is kept.
-            connection.execute("DELETE FROM document_extractions WHERE document_id=? AND status='failed' AND error_code='extraction_failed'", (document_id,))
-            # Another request may have completed before the lock was acquired.
-            if not connection.execute("SELECT 1 FROM document_extractions WHERE document_id=?", (document_id,)).fetchone():
-                connection.execute("INSERT INTO document_extractions(document_id,status,error_code,unit_kind,truncated,created_at) VALUES (?,?,?,?,?,?)", (document_id, result["status"], result["error_code"], result["unit_kind"], result["truncated"], now()))
-                connection.executemany("INSERT INTO document_pages(document_id,unit_no,original_text) VALUES (?,?,?)", [(document_id, unit["unit_no"], unit["text"]) for unit in result["units"]])
-                record_activity(connection, case_id, "document_extracted", document["original_name"])
-            return document_text(connection, document_id)
+        extract_stored(case_id, document)
     finally:
         EXTRACTION_LOCK.release()
+    with db() as connection:
+        return document_text(connection, document_id)
 
 
 @app.put("/api/cases/{case_id}/documents/{document_id}/text/{unit_no}")
@@ -1093,7 +1149,7 @@ def review_document_text(case_id: str, document_id: str, unit_no: int, payload: 
 
 
 @app.post("/api/cases/{case_id}/documents", status_code=201)
-async def upload_document(case_id: str, file: UploadFile = File(...), user: dict = Depends(require_user)) -> dict:
+async def upload_document(case_id: str, background_tasks: BackgroundTasks, file: UploadFile = File(...), user: dict = Depends(require_user)) -> dict:
     get_case(case_id, user["id"])
     original = Path((file.filename or "document").replace("\\", "/")).name
     extension = Path(original).suffix.lower()
@@ -1123,6 +1179,8 @@ async def upload_document(case_id: str, file: UploadFile = File(...), user: dict
     except Exception:
         target.unlink(missing_ok=True)
         raise
+    # Text layer and, for photos and scans, OCR are read right after this response.
+    AUTO_TEXT.queue(background_tasks, case_id, document_id, user["id"])
     return {"id": document_id, "case_id": case_id, "original_name": original, "content_type": file.content_type, "size_bytes": len(content), "created_at": created, "activity": activity}
 
 
@@ -1274,12 +1332,13 @@ def draft_review_action(case_id: str, draft_id: str, payload: DraftReviewInput, 
 app.include_router(contacts.router(db, require_user, now, record_activity))
 # Registered before the inbox router so /api/inbox/mailbox is not read as an inbox entry id.
 app.include_router(mailbox.router(db, require_user, now, lambda: UPLOAD_DIR, lambda: DATA_DIR, MAX_UPLOAD_BYTES, ALLOWED_EXTENSIONS))
-app.include_router(inbox.router(db, require_user, now, record_activity, lambda: UPLOAD_DIR, MAX_UPLOAD_BYTES, ALLOWED_EXTENSIONS))
+app.include_router(inbox.router(db, require_user, now, record_activity, lambda: UPLOAD_DIR, MAX_UPLOAD_BYTES, ALLOWED_EXTENSIONS, lambda *job: AUTO_TEXT.queue(*job)))
 app.include_router(costs.router(db, require_user, now, record_activity))
 app.include_router(case_tools.router(db, require_user, now, record_activity, row_case, lambda: DATA_DIR, lambda: UPLOAD_DIR))
 app.include_router(calendar_export.router(db, require_user, now))
 app.include_router(fee_tables.router(require_user))
 app.include_router(route_plans.router(db, require_user, now, record_activity))
+app.include_router(exports.router(db, require_user, now))
 app.include_router(ocr_routes.router(db, require_user, now, record_activity, get_case, get_document, document_text, lambda: UPLOAD_DIR, EXTRACTION_LOCK, ROOT))
 
 app.include_router(control.router(db,require_user,now,lambda:{'ai':ollama_status(),'ocr_available':document_ocr.available(),'catalogue':legal_catalogue.catalogue_status()}))

@@ -132,7 +132,7 @@ export function App() {
   const dc = draftCopy[lang];
   useEffect(() => {
     document.documentElement.lang = lang;
-    document.title = lang === "de" ? "Virtuelle Rechtsassistenz Schimmelpilz" : "Virtual Legal Assistant Schimmelpilz";
+    document.title = "Rechtsassistentin Schimmelpilz";
     writePreference("schimmelpilz.language", lang);
   }, [lang]);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);

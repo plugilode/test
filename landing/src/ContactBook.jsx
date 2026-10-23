@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { IconPlus, IconEdit, IconUsers } from '@tabler/icons-react';
 import { PartyList, confirmDelete } from './DeskComponents.jsx';
 import { matches } from './workbench.js';
+import { SpreadsheetLinks } from './ExportLinks.jsx';
 import './contacts.css';
 
 export const contactKinds = {
@@ -34,7 +35,7 @@ export function ContactBook({ lang, contacts, cases, query = '', open, onSaved, 
   const legacy = caseId ? cases.filter(item=>item.id===caseId) : cases;
   return <>
     <section className="desk-panel contact-book">
-      <div className="desk-panel-heading"><div><h2>{de ? 'Zentrales Adressbuch' : 'Central address book'}</h2><p>{caseId ? (de ? 'Kontakte dieser Akte' : 'Contacts linked to this case') : (de ? 'Kontakte verwalten und mehreren Akten zuordnen' : 'Manage contacts and link them to multiple cases')}</p></div><button className="desk-button solid" onClick={()=>start()} disabled={busy || Boolean(form)}><IconPlus size={17}/>{de ? 'Neuer Kontakt' : 'New contact'}</button></div>
+      <div className="desk-panel-heading"><div><h2>{de ? 'Zentrales Adressbuch' : 'Central address book'}</h2><p>{caseId ? (de ? 'Kontakte dieser Akte' : 'Contacts linked to this case') : (de ? 'Kontakte verwalten und mehreren Akten zuordnen' : 'Manage contacts and link them to multiple cases')}</p></div><div className="cost-actions">{!caseId && <SpreadsheetLinks path="/api/exports/contacts" lang={lang} />}<button className="desk-button solid" onClick={()=>start()} disabled={busy || Boolean(form)}><IconPlus size={17}/>{de ? 'Neuer Kontakt' : 'New contact'}</button></div></div>
       <div className="contact-filter"><label>{de ? 'Kontaktart' : 'Contact type'}<select value={kind} onChange={e=>setKind(e.target.value)}><option value="all">{de ? 'Alle Kontaktarten' : 'All contact types'}</option>{Object.entries(contactKinds[lang]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><span>{visible.length} {de ? 'Kontakte in dieser Auswahl' : 'contacts in this view'}</span></div>
       {contacts.loading && <p className="desk-footnote" role="status">{de ? 'Adressbuch wird geladen …' : 'Loading address book …'}</p>}
       {contacts.error && <p className="storage-error" role="alert">{de ? 'Adressbuch nicht erreichbar.' : 'Address book unavailable.'} <button className="desk-link" onClick={()=>contacts.reload()}>{de ? 'Erneut versuchen' : 'Retry'}</button></p>}

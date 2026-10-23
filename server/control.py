@@ -74,6 +74,7 @@ def principal(c,user,request):
         elif path in {'/api/research/status','/api/cost-reviews/calculate','/api/fee-tables/calculate','/api/deadlines/calculate','/api/deadlines/holidays'}:pass
         elif path.startswith('/api/legal/') and request.method=='GET':pass
         elif path=='/api/tasks/calendar.ics' and request.query_params.get('case_id') in allowed:pass
+        elif path in {'/api/exports/cases.csv','/api/exports/cases.xlsx','/api/exports/tasks.csv','/api/exports/tasks.xlsx'} and request.method=='GET':pass
         elif path.startswith('/api/cost-reviews'):
             target=request.query_params.get('case_id') or getattr(request.state,'payload_case_id',None)
             if len(parts)>3:
@@ -81,7 +82,7 @@ def principal(c,user,request):
                 if review:target=review['case_id']
             if target not in allowed:raise HTTPException(403,'case_not_granted')
         else:raise HTTPException(403,'case_scoped_member_use_case_workspace')
-    elif not path.startswith(('/api/cases','/api/contacts','/api/inbox','/api/tasks/','/api/cost-reviews','/api/fee-tables','/api/deadlines/','/api/legal/','/api/research/status')):
+    elif not path.startswith(('/api/cases','/api/contacts','/api/inbox','/api/tasks/','/api/cost-reviews','/api/fee-tables','/api/deadlines/','/api/legal/','/api/research/status','/api/exports/')):
         raise HTTPException(403,'personal_account_endpoint')
     owner_row=c.execute('SELECT letterhead_id FROM users WHERE id=?',(owner,)).fetchone()
     return {**user,'id':owner,'actor_id':actor,'workspace_role':member['role'],'allowed_cases':allowed,'letterhead_id':owner_row['letterhead_id']}

@@ -16,6 +16,9 @@ from pydantic import BaseModel
 from .control import audit, require_operator
 
 PLANS={'personal':990,'business':2990,'firm':4990}
+# past_due: Stripe is still retrying the renewal payment; access ends once it gives up (unpaid/canceled).
+ACCESS={'pilot','trial','active','past_due'}
+AUDIENCE_PLAN="CASE audience WHEN 'business' THEN 'business' WHEN 'law_firm' THEN 'firm' ELSE 'personal' END"
 
 
 def migrate(c):
@@ -24,10 +27,14 @@ def migrate(c):
         CREATE TABLE IF NOT EXISTS billing_orders(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),plan TEXT NOT NULL,session_id TEXT,created_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS billing_events(id TEXT PRIMARY KEY,event_type TEXT NOT NULL,received_at TEXT NOT NULL);
     ''')
+    if 'completed_at' not in {r[1] for r in c.execute('PRAGMA table_info(billing_orders)')}:
+        c.execute('ALTER TABLE billing_orders ADD COLUMN completed_at TEXT')
+    # Pilot rows created before plans followed the account type still show 'personal'; nothing was chosen or paid for them yet.
+    c.execute(f"UPDATE subscriptions SET plan=(SELECT {AUDIENCE_PLAN} FROM users WHERE users.id=subscriptions.user_id) WHERE status='pilot' AND plan='personal' AND trial_started IS NULL AND subscription_id IS NULL")
 
 
 def ensure(c,user_id):
-    c.execute('INSERT OR IGNORE INTO subscriptions(user_id,updated_at) VALUES(?,?)',(user_id,datetime.now(UTC).isoformat()))
+    c.execute(f'INSERT OR IGNORE INTO subscriptions(user_id,plan,updated_at) SELECT id,{AUDIENCE_PLAN},? FROM users WHERE id=?',(datetime.now(UTC).isoformat(),user_id))
     return dict(c.execute('SELECT * FROM subscriptions WHERE user_id=?',(user_id,)).fetchone())
 
 
@@ -42,7 +49,7 @@ def enforce(c,user,request):
     # Reading, exporting and deleting own data stay available after a trial or subscription ends.
     if request.method in {'GET','HEAD','DELETE'} or request.url.path.startswith(('/api/auth/','/api/team','/api/admin','/api/billing')):return
     row=ensure(c,user['id'])
-    if effective(row) not in {'pilot','trial','active'}:raise HTTPException(402,'subscription_required_read_export_remains_available')
+    if effective(row) not in ACCESS:raise HTTPException(402,'subscription_required_read_export_remains_available')
 
 
 def configured():
@@ -97,6 +104,8 @@ def router(db,require_user,now):
         with db() as c:
             c.execute('BEGIN IMMEDIATE');row=ensure(c,user['id'])
             if row['trial_started'] or row['subscription_id']:raise HTTPException(409,'Trial already used or subscription exists')
+            # A trial would replace unlimited free pilot access with a seven-day expiry.
+            if effective(row)=='pilot':raise HTTPException(409,'Pilot access is already free; no trial needed')
             end=(datetime.now(UTC)+timedelta(days=7)).isoformat()
             c.execute("UPDATE subscriptions SET plan=?,status='trial',trial_started=?,trial_end=?,updated_at=?,version=version+1 WHERE user_id=?",(payload.plan,now(),end,now(),user['id']))
             audit(c,user['id'],user['id'],'trial_started',payload.plan)
@@ -109,12 +118,12 @@ def router(db,require_user,now):
             c.execute('BEGIN IMMEDIATE');row=ensure(c,user['id'])
             if row['subscription_id'] and effective(row) in {'active','trialing','past_due','unpaid'}:raise HTTPException(409,'Manage existing subscription in portal')
             if effective(row)=='trial':raise HTTPException(409,'Finish the free local trial first; no early charge')
-            pending=c.execute('SELECT * FROM billing_orders WHERE user_id=? ORDER BY created_at DESC LIMIT 1',(user['id'],)).fetchone()
+            pending=c.execute('SELECT * FROM billing_orders WHERE user_id=? AND completed_at IS NULL ORDER BY created_at DESC LIMIT 1',(user['id'],)).fetchone()
             if pending and pending['created_at']>(datetime.now(UTC)-timedelta(hours=24)).isoformat():
                 if pending['plan']!=payload.plan:raise HTTPException(409,'Existing checkout pending; retry original plan or wait for expiry')
                 identifier=pending['id']
             else:
-                identifier=str(uuid.uuid4());c.execute('INSERT INTO billing_orders VALUES(?,?,?,NULL,?)',(identifier,user['id'],payload.plan,now()))
+                identifier=str(uuid.uuid4());c.execute('INSERT INTO billing_orders(id,user_id,plan,created_at) VALUES(?,?,?,?)',(identifier,user['id'],payload.plan,now()))
         price=stripe('/v1/prices/'+os.environ['STRIPE_PRICE_'+payload.plan.upper()])
         recurring=price.get('recurring') or {}
         if price.get('unit_amount')!=PLANS[payload.plan] or price.get('currency')!='eur' or recurring.get('interval')!='month' or recurring.get('interval_count',1)!=1 or price.get('tax_behavior')!='inclusive':raise HTTPException(503,'Configured price does not match advertised monthly final price')
@@ -163,13 +172,16 @@ def router(db,require_user,now):
                 row=ensure(c,user_id);items=sub.get('items',{}).get('data',[])
                 if len(items)!=1 or items[0].get('quantity')!=1 or items[0]['price']['id']!=os.getenv('STRIPE_PRICE_'+order['plan'].upper()):raise HTTPException(400,'Unexpected subscription price')
                 if row['customer_id'] and row['customer_id']!=sub['customer']:raise HTTPException(400,'Customer mismatch')
-                if row['subscription_id'] and row['subscription_id']!=sub['id'] and effective(row)=='active':raise HTTPException(409,'Another subscription is active')
+                if row['subscription_id'] and row['subscription_id']!=sub['id'] and effective(row) in ACCESS:
+                    c.execute('INSERT INTO billing_events VALUES(?,?,?)',(identifier,kind+':superseded',now()))
+                    return {'received':True}
                 end=items[0].get('current_period_end') or sub.get('current_period_end')
                 end=datetime.fromtimestamp(end,UTC).isoformat() if end else None
                 state=sub['status']
                 if state=='trialing':state='active' # provider-confirmed trial, not inferred from checkout return
                 if state=='active' and not end:raise HTTPException(400,'Missing subscription period')
                 c.execute('UPDATE subscriptions SET plan=?,status=?,customer_id=?,subscription_id=?,period_end=?,cancel_at_period_end=?,updated_at=?,version=version+1 WHERE user_id=?',(order['plan'],state,sub['customer'],sub['id'],end,bool(sub.get('cancel_at_period_end')),now(),user_id))
+                c.execute('UPDATE billing_orders SET completed_at=COALESCE(completed_at,?) WHERE id=?',(now(),order_id))
                 c.execute('INSERT INTO billing_events VALUES(?,?,?)',(identifier,kind,now()))
             return {'received':True}
         with db() as c:c.execute('INSERT OR IGNORE INTO billing_events VALUES(?,?,?)',(identifier,kind,now()))

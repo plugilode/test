@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IconInbox, IconUpload, IconEdit } from '@tabler/icons-react';
+import { IconUpload, IconEdit } from '@tabler/icons-react';
 import { request, API_BASE } from './useCaseStorage.js';
+import { SpreadsheetLinks } from './ExportLinks.jsx';
 import { dateLabel, localToday, matches } from './workbench.js';
 import { DocumentReview } from './DocumentReview.jsx';
 import { confirmDelete } from './DeskComponents.jsx';
 import { MailboxImport } from './MailboxImport.jsx';
 import './inbox.css';
 
+import { DateInput } from "./DateInput";
 const fields = item => ({subject:item?.subject || '', sender:item?.sender || '',received_on:item?.received_on || localToday(),note:item?.note || ''});
 
 function IncomingFields({ value, onChange, de }) {
@@ -14,7 +16,7 @@ function IncomingFields({ value, onChange, de }) {
   return <div className="intake-grid">
     <label>{de ? 'Betreff (optional)' : 'Subject (optional)'}<input maxLength={160} value={value.subject} onChange={e=>set('subject',e)}/></label>
     <label>{de ? 'Absender (optional)' : 'Sender (optional)'}<input maxLength={160} value={value.sender} onChange={e=>set('sender',e)}/></label>
-    <label>{de ? 'Eingangsdatum (manuell) *' : 'Received date (manual) *'}<input type="date" required value={value.received_on} onChange={e=>set('received_on',e)}/></label>
+    <label>{de ? 'Eingangsdatum (manuell) *' : 'Received date (manual) *'}<DateInput required value={value.received_on} onChange={e=>set('received_on',e)}/></label>
     <label>{de ? 'Interner Vermerk (optional)' : 'Internal note (optional)'}<textarea rows={2} maxLength={2000} value={value.note} onChange={e=>set('note',e)}/></label>
   </div>;
 }
@@ -71,7 +73,7 @@ export function Inbox({ lang, cases, query = '', open, onChanged, canDelete = fa
   const begin = (item, mode) => { setError('');setNotice(''); if(mode==='edit') { setEditing(item);setEditFields(fields(item)); } else {setAssignment(item);setTarget('');setReason('');} };
   const editingOpen = Boolean(editing || assignment);
   return <section className="desk-panel inbox-panel">
-    <div className="desk-panel-heading"><div><h2>{de ? 'Posteingang & Aktenzuordnung' : 'Inbox & case assignment'}</h2><p>{de ? 'Dateien aufnehmen, Eingangsdaten erfassen und ausdrücklich einer Akte zuordnen.' : 'Receive files, record incoming details and explicitly assign a case.'}</p></div><IconInbox size={28} aria-hidden="true"/></div>
+    <div className="desk-panel-heading"><div><h2>{de ? 'Posteingang & Aktenzuordnung' : 'Inbox & case assignment'}</h2><p>{de ? 'Dateien aufnehmen, Eingangsdaten erfassen und ausdrücklich einer Akte zuordnen.' : 'Receive files, record incoming details and explicitly assign a case.'}</p></div><SpreadsheetLinks path="/api/exports/inbox" lang={lang} /></div>
     {canDelete && <MailboxImport lang={lang} onImported={() => reload()} />}
     <details className="inbox-upload" open><summary>{de ? 'Dokumente in den Posteingang hochladen' : 'Upload documents to the inbox'}</summary>
       <form onSubmit={upload}><fieldset disabled={busy || loading}><label>{de ? 'Dateien auswählen *' : 'Choose files *'}<input ref={fileInput} type="file" multiple required accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" onChange={e=>setSelectedFiles(Array.from(e.target.files))}/></label><p className="field-help">{de ? 'PDF, DOC, DOCX, PNG, JPG oder ZIP · maximal 10 MB je Datei. Die folgenden Angaben gelten für alle ausgewählten Dateien und können vor der Zuordnung bearbeitet werden.' : 'PDF, DOC, DOCX, PNG, JPG or ZIP · up to 10 MB per file. These details apply to all selected files and can be edited before assignment.'}</p><IncomingFields value={metadata} onChange={setMetadata} de={de}/><div className="inbox-actions"><span>{selectedFiles.length} {de ? 'Datei(en) ausgewählt' : 'file(s) selected'}</span><button className="desk-button solid" disabled={busy || loading || !selectedFiles.length}><IconUpload size={17}/>{busy ? '…' : de ? 'Im Posteingang speichern' : 'Save to inbox'}</button></div></fieldset></form>

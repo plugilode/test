@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { dateLabel } from './workbench.js';
 import { IconMailDown } from "@tabler/icons-react";
 import { request } from "./useCaseStorage.js";
 import "./account-settings.css";
@@ -38,7 +39,7 @@ export function MailboxImport({ lang, onImported }) {
   const remove = () => run(async () => { await request("/inbox/mailbox", { method: "DELETE" }); setSettings({ configured: false }); });
   if (!settings || settings.unavailable) return null;
   return <details className="draft-send mailbox-import" open={settings.configured || undefined}><summary><IconMailDown size={16} /> {c.title}</summary><p className="field-help">{c.intro}</p>
-    {settings.configured && <div className="account-actions"><button className="desk-button solid" disabled={busy} onClick={fetchNow}>{busy ? "…" : c.fetch}</button>{settings.last_fetch_at && <small>{c.last}: {new Date(settings.last_fetch_at).toLocaleString(lang === "de" ? "de-DE" : "en-GB")} · {settings.last_result}</small>}</div>}
+    {settings.configured && <div className="account-actions"><button className="desk-button solid" disabled={busy} onClick={fetchNow}>{busy ? "…" : c.fetch}</button>{settings.last_fetch_at && <small>{c.last}: {dateLabel(settings.last_fetch_at, lang, true)} · {settings.last_result}</small>}</div>}
     <form className="account-form" onSubmit={save}><fieldset disabled={busy}><div className="intake-grid">
       <label>{c.host}<input name="host" required maxLength={253} pattern="[A-Za-z0-9.\-]+" placeholder="imap.example.com" defaultValue={settings.host || ""} /></label>
       <label>{c.security}<select value={security} onChange={event => setSecurity(event.target.value)}><option value="ssl">{c.ssl}</option><option value="starttls">{c.starttls}</option></select></label>
