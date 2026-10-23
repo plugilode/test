@@ -71,7 +71,7 @@ class ScreenshotTest {
             scenario.onActivity { activity = it }
             // Frames of the animated splash: paused clock, stepped by hand.
             rule.mainClock.autoAdvance = false
-            repeat(24) { frame -> rule.mainClock.advanceTimeBy(90); shot("splash/frame-%02d".format(frame)) }
+            repeat(34) { frame -> rule.mainClock.advanceTimeBy(90); shot("splash/frame-%02d".format(frame)) }
             rule.mainClock.autoAdvance = true
             waitFor("Recht verstehen.", substring = true)
             shot("01-willkommen")

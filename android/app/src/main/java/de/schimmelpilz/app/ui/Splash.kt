@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,8 +50,8 @@ private val Muted = Color(0xFF4A5559)
 
 /**
  * Animated start screen, continuing the system splash (same cream background and badge): the badge bounces in and
- * shakes like the scene in it, the name slides up, the gold § rule draws out, the claim fades in. [onFinished] fires once
- * the animation has played (~2 s); while the app is still checking the session afterwards, a thin progress bar shows.
+ * shakes like the scene in it, the name slides up, the gold § rule draws out, the claim and the slogan fade in. [onFinished] fires once
+ * the animation has played (~3 s); while the app is still checking the session afterwards, a thin progress bar shows.
  */
 @Composable
 fun AnimatedSplash(waiting: Boolean, onFinished: () -> Unit) {
@@ -59,6 +60,7 @@ fun AnimatedSplash(waiting: Boolean, onFinished: () -> Unit) {
     val name = remember { Animatable(0f) }
     val rule = remember { Animatable(0f) }
     val claim = remember { Animatable(0f) }
+    val slogan = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         badge.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = Spring.StiffnessLow))
         launch {
@@ -70,11 +72,14 @@ fun AnimatedSplash(waiting: Boolean, onFinished: () -> Unit) {
         name.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
         rule.animateTo(1f, tween(360, easing = FastOutSlowInEasing))
         claim.animateTo(1f, tween(280))
-        delay(450) // let the finished logo stand for a moment before the app fades in
+        slogan.animateTo(1f, tween(520, easing = FastOutSlowInEasing))
+        delay(1300) // long enough to read the slogan before the app fades in
         onFinished()
     }
     val claimText = brandClaim()
-    Box(Modifier.fillMaxSize().background(Cream).semantics { contentDescription = "$BRAND – $claimText" }, contentAlignment = Alignment.Center) {
+    val sloganText = tr("Klarheit und die Wahrheit – damit Sie keine Angst mehr vor Großkanzleien haben müssen.",
+        "Clarity and the truth – so you no longer have to fear big law firms.")
+    Box(Modifier.fillMaxSize().background(Cream).semantics { contentDescription = "$BRAND – $claimText. $sloganText" }, contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 32.dp)) {
             Image(
                 painterResource(R.drawable.login_logo), contentDescription = null,
@@ -102,7 +107,11 @@ fun AnimatedSplash(waiting: Boolean, onFinished: () -> Unit) {
             Spacer(Modifier.height(10.dp))
             Text(claimText, modifier = Modifier.alpha(claim.value), textAlign = TextAlign.Center,
                 style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 17.sp), color = Muted)
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(22.dp))
+            Text(sloganText, textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(max = 320.dp).graphicsLayer { alpha = slogan.value; translationY = (1f - slogan.value) * 16.dp.toPx() },
+                style = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 24.sp, letterSpacing = (-0.005).em), color = Ink)
+            Spacer(Modifier.height(24.dp))
             Box(Modifier.height(3.dp).width(120.dp)) {
                 if (waiting) LinearProgressIndicator(Modifier.fillMaxSize(), color = Green, trackColor = Green.copy(alpha = 0.12f))
             }
