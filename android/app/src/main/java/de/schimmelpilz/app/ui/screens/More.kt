@@ -36,6 +36,22 @@ import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import de.schimmelpilz.app.Reminders
+import de.schimmelpilz.app.data.Team
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -78,7 +94,12 @@ fun MoreScreen(state: AppState) {
     val lang = LocalLang.current
     var billing by remember { mutableStateOf<Billing?>(null) }
     var deleting by remember { mutableStateOf(false) }
+    var team by remember { mutableStateOf<Team?>(null) }
+    var switching by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { billing = runCatching { state.api.billing() }.getOrNull() }
+    LaunchedEffect(Unit) { team = runCatching { state.api.team() }.getOrNull() }
+    val current = team?.workspaces?.firstOrNull { it.ownerId == team?.selected }
+    if (switching) team?.let { t -> WorkspaceDialog(state, t, onDone = { changed -> switching = false; if (changed != null) team = changed }) }
     if (deleting) DeleteAccountDialog(state, user?.mfaEnabled == true, onDismiss = { deleting = false })
 
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -88,18 +109,24 @@ fun MoreScreen(state: AppState) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(user?.fullName ?: "", style = MaterialTheme.typography.titleMedium)
-                Text(listOfNotNull(user?.organisation?.ifBlank { null }, user?.email).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(listOfNotNull(current?.name?.ifBlank { null } ?: user?.organisation?.ifBlank { null }, user?.email).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            // Only someone invited into another workspace has anything to switch to.
+            if ((team?.workspaces?.size ?: 0) > 1) OutlinedButton(onClick = { switching = true }) { Text(tr("Wechseln", "Switch")) }
         }
 
         SectionLabel(tr("In der Web-App", "In the web app"))
         Text(tr("Diese Bereiche öffnen sich im Browser, mit demselben Konto.", "These sections open in the browser with the same account."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ModuleGrid(listOf(
+            Module(Icons.Outlined.Contacts, tr("Adressen", "Addresses"), "parties", Color(0xFF3F6F93)),
+            Module(Icons.Outlined.EditNote, tr("Schrift\u00ADverkehr", "Corres\u00ADpondence"), "drafts", Color(0xFF4A6AA0)),
+            Module(Icons.Outlined.Description, tr("E-Akte", "E-files"), "documents", Color(0xFFC4613F)),
+            Module(Icons.AutoMirrored.Outlined.ReceiptLong, tr("Kosten\u00ADprüfung", "Cost review"), "costs", Color(0xFFA8813F)),
+            Module(Icons.Outlined.Balance, tr("Verfahrens\u00ADwege", "Procedural routes"), "routes", Color(0xFF8A6538)),
+            Module(Icons.Outlined.Public, tr("Online Services", "Online services"), "services", Color(0xFF2F6F8F)),
+        )) { section -> openWeb(context, "?open=$section") }
         Links(listOf(
-            Triple(Icons.Outlined.Contacts, tr("Adressen", "Address book"), "parties"),
-            Triple(Icons.Outlined.EditNote, tr("Schriftverkehr & Entwürfe", "Correspondence & drafts"), "drafts"),
-            Triple(Icons.AutoMirrored.Outlined.ReceiptLong, tr("Kostenprüfung", "Cost review"), "costs"),
-            Triple(Icons.Outlined.Balance, tr("Verfahrenswege", "Procedural routes"), "routes"),
             Triple(Icons.Outlined.Groups, tr("Team & Rechte", "Team & access"), "team"),
             Triple(Icons.Outlined.Settings, tr("Profil, Briefpapier & Sicherheit", "Profile, letter paper & security"), "account"),
         )) { section -> openWeb(context, "?open=$section") }
@@ -120,6 +147,9 @@ fun MoreScreen(state: AppState) {
                 TextButton(onClick = { openWeb(context, "?open=billing") }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text(tr("Abo öffnen", "Open subscription")) }
             }
         }
+
+        SectionLabel(tr("Erinnerungen", "Reminders"))
+        ReminderSwitch()
 
         SectionLabel(tr("Darstellung", "Appearance"))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -144,6 +174,96 @@ fun MoreScreen(state: AppState) {
         Text("$BRAND ${BuildConfig.VERSION_NAME} · " + tr("Allgemeine Rechtsinformation, keine anwaltliche Beratung im Einzelfall.", "General legal information, not individual legal advice."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 24.dp))
     }
+}
+
+private class Module(val icon: ImageVector, val label: String, val section: String, val tint: Color)
+
+@Composable
+private fun ModuleGrid(modules: List<Module>, onOpen: (section: String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        modules.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { module ->
+                    Surface(onClick = { onOpen(module.section) }, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.weight(1f).heightIn(min = 92.dp)) {
+                        Column(Modifier.padding(horizontal = 6.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(module.icon, null, Modifier.size(28.dp), tint = module.tint)
+                            Text(module.label, style = MaterialTheme.typography.labelLarge.copy(hyphens = Hyphens.Auto, lineBreak = LineBreak.Paragraph), textAlign = TextAlign.Center, maxLines = 2)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Daily deadline reminders; on Android 13+ switching them on asks for the notification permission. */
+@Composable
+private fun ReminderSwitch() {
+    val context = LocalContext.current
+    var on by remember { mutableStateOf(Reminders.enabled(context) && !Reminders.permissionNeeded(context)) }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        on = granted; Reminders.setEnabled(context, granted)
+    }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.NotificationsActive, null); Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(tr("Fristen-Erinnerungen", "Deadline reminders"))
+            Text(tr("Morgens: 2 Tage vorher, am Vortag, am Fristtag und bei Überfälligkeit.", "Mornings: 2 days before, the day before, on the day and when overdue."),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = on, onCheckedChange = { want ->
+            if (want && Reminders.permissionNeeded(context)) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
+            else { on = want; Reminders.setEnabled(context, want) }
+        })
+    }
+}
+
+@Composable
+private fun WorkspaceDialog(state: AppState, team: Team, onDone: (Team?) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val failed = tr("Wechsel nicht möglich. Bitte erneut versuchen.", "Could not switch. Please try again.")
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDone(null) },
+        title = { Text(tr("Arbeitsbereich wechseln", "Switch workspace")) },
+        text = {
+            Column {
+                team.workspaces.forEach { workspace ->
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(enabled = !busy) {
+                        busy = true
+                        scope.launch {
+                            try {
+                                state.api.switchWorkspace(workspace.ownerId)
+                                val updated = state.api.team()
+                                state.refresh().join()
+                                onDone(updated)
+                            } catch (e: ApiException) { error = failed; busy = false }
+                        }
+                    }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = workspace.ownerId == team.selected, onClick = null)
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(workspace.name?.ifBlank { null } ?: tr("Eigener Arbeitsbereich", "Own workspace"), style = MaterialTheme.typography.titleSmall)
+                            Text(roleLabel(workspace.role), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = { TextButton(enabled = !busy, onClick = { onDone(null) }) { Text(tr("Schließen", "Close")) } },
+    )
+}
+
+@Composable
+private fun roleLabel(role: String) = when (role) {
+    "owner" -> tr("Inhaber/in", "Owner")
+    "editor" -> tr("Bearbeiten", "Editor")
+    "viewer" -> tr("Nur lesen", "Read only")
+    "operator" -> tr("Betrieb", "Operator")
+    else -> role
 }
 
 @Composable

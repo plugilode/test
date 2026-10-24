@@ -75,7 +75,8 @@ const storageCopy = {
 };
 
 // Desk sections and sign-in dialogs the mobile app opens directly with ?open=<id>.
-const OPEN_VIEWS = ["inbox", "parties", "cases", "documents", "drafts", "tasks", "costs", "routes", "research", "team", "billing", "account"];
+const OPEN_VIEWS = ["inbox", "parties", "cases", "documents", "drafts", "tasks", "costs", "routes", "research", "services", "team", "billing", "account"];
+const OPEN_CASE_TABS = ["overview", "parties", "documents", "drafts", "tasks", "routes", "costs", "activity"];
 const OPEN_AUTH = ["login", "register", "forgot"];
 
 // Links from account emails (?reset=<token> / ?verify=<token>) and the mobile app (?open=<id>), read once per page load and removed from the address bar.
@@ -83,9 +84,11 @@ const emailLink = (() => {
   const params = new URLSearchParams(window.location.search);
   const open = params.get("open");
   const link = { reset: params.get("reset"), verify: params.get("verify"), verifyStarted: false,
-    view: OPEN_VIEWS.includes(open) ? open : null, auth: OPEN_AUTH.includes(open) ? open : null };
+    view: OPEN_VIEWS.includes(open) ? open : null, auth: OPEN_AUTH.includes(open) ? open : null,
+    // ?open=case&case=<id>&tab=<tab>: one case file at a given tab (e.g. drafts or costs).
+    caseId: open === "case" ? params.get("case") : null, caseTab: OPEN_CASE_TABS.includes(params.get("tab")) ? params.get("tab") : "overview" };
   if (link.reset || link.verify || open) {
-    params.delete("reset"); params.delete("verify"); params.delete("open");
+    params.delete("reset"); params.delete("verify"); params.delete("open"); params.delete("case"); params.delete("tab");
     window.history.replaceState(null, "", window.location.pathname + (params.toString() ? `?${params}` : "") + window.location.hash);
   }
   return link;
@@ -179,7 +182,13 @@ export function App() {
     }
   }, []);
   // A desk section requested by the mobile app needs a sign-in first when the browser has no session yet.
-  useEffect(() => { if (!auth.loading && !auth.user && emailLink.view) { setAuthMode("login"); setModal("auth"); } }, [auth.loading]);
+  useEffect(() => { if (!auth.loading && !auth.user && (emailLink.view || emailLink.caseId)) { setAuthMode("login"); setModal("auth"); } }, [auth.loading]);
+  // A case requested by the mobile app opens once the signed-in user's cases are loaded.
+  useEffect(() => {
+    if (!auth.user || !emailLink.caseId || !storage.cases.some(item => item.id === emailLink.caseId)) return;
+    selectCase(emailLink.caseId); setActiveTab(emailLink.caseTab); setView("case");
+    emailLink.caseId = null;
+  }, [auth.user?.id, storage.cases]);
   const signOut = async () => { try { await auth.logout(); setModal(null); setQuestion(""); setAnswer(""); } catch { showToast(lang === "de" ? "Abmelden fehlgeschlagen. Bitte erneut versuchen." : "Sign-out failed. Please try again."); } };
   const startCase = async payload => {
     if (savingCase) return false;

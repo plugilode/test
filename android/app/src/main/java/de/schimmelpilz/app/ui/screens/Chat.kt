@@ -169,7 +169,7 @@ fun ChatScreen(state: AppState, caseId: String, initialQuestion: String, onBack:
         }
         Composer(
             value = input, onValue = { input = it }, cases = cases, selected = case, onSelect = { currentCase = it },
-            onSend = { val q = input; input = ""; send(q) }, placeholder = tr("Nachfrage stellen", "Ask a follow-up"),
+            onSend = { val q = input; input = ""; send(q) }, placeholder = tr("Nachfrage stellen", "Ask a follow-up"), attach = rememberCaseUpload(state, case),
         )
     }
 
