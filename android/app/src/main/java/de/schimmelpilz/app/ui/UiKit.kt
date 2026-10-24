@@ -74,8 +74,8 @@ fun Spark(modifier: Modifier = Modifier, size: Dp = 24.dp, brush: Brush = Brush.
 }
 
 @Composable
-fun Avatar(initials: String, size: Dp = 40.dp) {
-    Box(Modifier.size(size).clip(CircleShape).background(Brush.linearGradient(listOf(Green, Gold))), contentAlignment = Alignment.Center) {
+fun Avatar(initials: String, size: Dp = 40.dp, modifier: Modifier = Modifier) {
+    Box(modifier.size(size).clip(CircleShape).background(Brush.linearGradient(listOf(Green, Gold))), contentAlignment = Alignment.Center) {
         Text(initials.ifBlank { "S" }, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.36f).sp)
     }
 }

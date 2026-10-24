@@ -86,16 +86,33 @@ data class CaseFile(
     val language: String = "de",
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("archived_at") val archivedAt: String? = null,
+    @SerialName("archive_version") val archiveVersion: Int = 0,
     val details: CaseDetails = CaseDetails(),
     val documents: List<CaseDocument> = emptyList(),
     val drafts: List<Draft> = emptyList(),
     val tasks: List<Task> = emptyList(),
+    val activities: List<Activity> = emptyList(),
 ) {
     /** Next open date: the case's own deadline or an open task, whichever comes first. */
     val nextDue: Pair<String, String>?
         get() = (listOfNotNull(details.deadline?.let { it to details.deadlineNote.ifBlank { title } }) +
             tasks.filter { !it.completed && it.dueOn != null }.map { it.dueOn!! to it.title }).minByOrNull { it.first }
 }
+
+@Serializable
+data class Activity(
+    val id: String,
+    val action: String,
+    val detail: String = "",
+    @SerialName("created_at") val createdAt: String = "",
+)
+
+/** A workspace the user may work in: their own, or one they were invited to (GET /api/team). */
+@Serializable
+data class Workspace(@SerialName("owner_id") val ownerId: String, val name: String? = null, val role: String = "owner")
+
+@Serializable
+data class Team(val selected: String = "", val role: String = "owner", val workspaces: List<Workspace> = emptyList())
 
 @Serializable
 data class LegalSource(

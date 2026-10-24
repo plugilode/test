@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Configuration
 import de.schimmelpilz.app.data.Api
 import de.schimmelpilz.app.data.ApiException
 import de.schimmelpilz.app.data.CaseFile
@@ -17,7 +18,10 @@ import kotlinx.coroutines.launch
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.util.Locale
 
-class SchimmelpilzApp : Application()
+/** Provides WorkManager's configuration so it also starts on demand (deadline reminders), e.g. in tests. */
+class SchimmelpilzApp : Application(), Configuration.Provider {
+    override val workManagerConfiguration: Configuration get() = Configuration.Builder().build()
+}
 
 /** The Schimmelpilz server the app talks to: chosen on the sign-in screen, else the build default. */
 object Server {
@@ -57,11 +61,14 @@ class AppState(app: Application) : AndroidViewModel(app) {
     val cases = MutableStateFlow<List<CaseFile>>(emptyList())
     val inbox = MutableStateFlow<List<InboxItem>>(emptyList())
     val loadError = MutableStateFlow<String?>(null)
+    /** A tab to open next, e.g. "deadlines" after tapping a reminder. */
+    val pendingTab = MutableStateFlow<String?>(null)
 
     init {
         viewModelScope.launch {
             _user.value = runCatching { api.me() }.getOrNull()
             sessionChecked.value = true
+            Reminders.schedule(app, signedIn = _user.value != null)
             if (_user.value != null) refresh()
         }
     }
@@ -79,13 +86,13 @@ class AppState(app: Application) : AndroidViewModel(app) {
     fun setLang(value: String) { lang.value = value; prefs.edit { putString("lang", value) } }
     fun setTheme(value: ThemeMode) { themeMode.value = value; prefs.edit { putString("theme", value.name) } }
 
-    fun signedIn(user: User) { _user.value = user; refresh() }
+    fun signedIn(user: User) { _user.value = user; Reminders.schedule(getApplication(), signedIn = true); refresh() }
 
     /** After the server deleted the account: forget everything locally, back to the welcome screen. */
-    fun accountDeleted() { _user.value = null; cases.value = emptyList(); inbox.value = emptyList() }
+    fun accountDeleted() { Reminders.schedule(getApplication(), signedIn = false); _user.value = null; cases.value = emptyList(); inbox.value = emptyList() }
 
     fun signOut() = viewModelScope.launch {
-        api.logout(); _user.value = null; cases.value = emptyList(); inbox.value = emptyList()
+        api.logout(); Reminders.schedule(getApplication(), signedIn = false); _user.value = null; cases.value = emptyList(); inbox.value = emptyList()
     }
 
     fun refresh() = viewModelScope.launch {

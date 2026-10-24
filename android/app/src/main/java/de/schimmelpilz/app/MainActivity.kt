@@ -1,5 +1,6 @@
 package de.schimmelpilz.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -33,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,11 +67,17 @@ import java.net.URLEncoder
 class MainActivity : ComponentActivity() {
     private val state: AppState by viewModels()
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(Reminders.OPEN_TAB)?.let { state.pendingTab.value = it }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // System start screen first; it hands over to the animated splash on the first frame.
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) state.pendingTab.value = intent.getStringExtra(Reminders.OPEN_TAB)
         setContent {
             val lang by state.lang.collectAsStateWithLifecycle()
             val mode by state.themeMode.collectAsStateWithLifecycle()
@@ -129,6 +137,8 @@ private fun SignedIn(state: AppState) {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     val showBar = tabs.any { it.route == route } || route?.startsWith("case/") == true
+    val pendingTab by state.pendingTab.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingTab) { pendingTab?.let { tab -> if (tabs.any { it.route == tab }) nav.goTab(tab); state.pendingTab.value = null } }
     Scaffold(
         bottomBar = {
             if (showBar) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
@@ -151,9 +161,9 @@ private fun SignedIn(state: AppState) {
     ) { padding ->
         NavHost(nav, startDestination = "assistant", modifier = Modifier.padding(padding)) {
             composable("assistant") {
-                AssistantScreen(state, onAsk = { caseId, question -> nav.navigate("chat/$caseId?q=${enc(question)}") }, onOpenDeadlines = { nav.goTab("deadlines") })
+                AssistantScreen(state, onAsk = { caseId, question -> nav.navigate("chat/$caseId?q=${enc(question)}") }, onOpenChat = { nav.navigate("chat/$it") }, onOpenDeadlines = { nav.goTab("deadlines") }, onOpenMore = { nav.goTab("more") })
             }
-            composable("cases") { CasesScreen(state, onOpen = { nav.navigate("case/$it") }) }
+            composable("cases") { CasesScreen(state, onOpen = { nav.navigate("case/$it") }, onOpenDeadlines = { nav.goTab("deadlines") }) }
             composable("case/{id}", listOf(navArgument("id") { type = NavType.StringType })) { back ->
                 CaseDetailScreen(state, back.arguments?.getString("id")!!, onBack = { nav.popBackStack() }, onAsk = { nav.navigate("chat/$it") })
             }

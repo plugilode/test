@@ -58,6 +58,8 @@ class SessionCookieJar(private val prefs: SharedPreferences) : CookieJar {
 @Serializable private data class NewTask(val title: String, val due_on: String? = null, val priority: String = "normal", val note: String = "")
 @Serializable private data class EditTask(val title: String, val due_on: String? = null, val priority: String = "normal", val note: String = "", val completed: Boolean)
 @Serializable private data class Assign(val case_id: String, val expected_version: Int)
+@Serializable private data class Archive(val archived: Boolean, val expected_version: Int)
+@Serializable private data class Switch(val owner_id: String)
 @Serializable private data class DeleteAccount(val password: String, val confirm: String, val mfa_code: String? = null)
 
 class Api(baseUrl: String, private val cookies: SessionCookieJar) {
@@ -152,6 +154,27 @@ class Api(baseUrl: String, private val cookies: SessionCookieJar) {
     suspend fun setTaskDone(task: Task, done: Boolean) {
         call("PUT", "api/cases/${task.caseId}/tasks/${task.id}", body(EditTask(task.title, task.dueOn, task.priority, task.note, done)))
     }
+
+    /**
+     * Changes title, facts and status. The server replaces the whole record, so this starts from the case as the
+     * server holds it (all fields, also those the app does not know) and changes only these three.
+     */
+    suspend fun updateCase(id: String, title: String, description: String, status: String) {
+        val current = json.parseToJsonElement(call("GET", "api/cases/$id")).jsonObject
+        val details = JsonObject(current["details"]!!.jsonObject + ("status" to JsonPrimitive(status)))
+        val update = JsonObject(mapOf("title" to JsonPrimitive(title.trim()), "description" to JsonPrimitive(description.trim()),
+            "language" to (current["language"] ?: JsonPrimitive("de")), "details" to details))
+        call("PUT", "api/cases/$id", json.encodeToString(JsonObject.serializer(), update).toRequestBody(jsonType))
+    }
+
+    suspend fun archive(case: CaseFile, archived: Boolean) {
+        call("PUT", "api/cases/${case.id}/archive", body(Archive(archived, case.archiveVersion)))
+    }
+
+    suspend fun team(): Team = json.decodeFromString(call("GET", "api/team"))
+
+    /** Selects the workspace for this session (the server keeps it in a cookie). */
+    suspend fun switchWorkspace(ownerId: String) { call("POST", "api/team/switch", body(Switch(ownerId))) }
 
     suspend fun billing(): Billing = json.decodeFromString(call("GET", "api/billing"))
 

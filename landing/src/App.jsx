@@ -74,12 +74,21 @@ const storageCopy = {
   },
 };
 
-// Links from account emails (?reset=<token> / ?verify=<token>), read once per page load and removed from the address bar.
+// Desk sections and sign-in dialogs the mobile app opens directly with ?open=<id>.
+const OPEN_VIEWS = ["inbox", "parties", "cases", "documents", "drafts", "tasks", "costs", "routes", "research", "services", "team", "billing", "account"];
+const OPEN_CASE_TABS = ["overview", "parties", "documents", "drafts", "tasks", "routes", "costs", "activity"];
+const OPEN_AUTH = ["login", "register", "forgot"];
+
+// Links from account emails (?reset=<token> / ?verify=<token>) and the mobile app (?open=<id>), read once per page load and removed from the address bar.
 const emailLink = (() => {
   const params = new URLSearchParams(window.location.search);
-  const link = { reset: params.get("reset"), verify: params.get("verify"), verifyStarted: false };
-  if (link.reset || link.verify) {
-    params.delete("reset"); params.delete("verify");
+  const open = params.get("open");
+  const link = { reset: params.get("reset"), verify: params.get("verify"), verifyStarted: false,
+    view: OPEN_VIEWS.includes(open) ? open : null, auth: OPEN_AUTH.includes(open) ? open : null,
+    // ?open=case&case=<id>&tab=<tab>: one case file at a given tab (e.g. drafts or costs).
+    caseId: open === "case" ? params.get("case") : null, caseTab: OPEN_CASE_TABS.includes(params.get("tab")) ? params.get("tab") : "overview" };
+  if (link.reset || link.verify || open) {
+    params.delete("reset"); params.delete("verify"); params.delete("open"); params.delete("case"); params.delete("tab");
     window.history.replaceState(null, "", window.location.pathname + (params.toString() ? `?${params}` : "") + window.location.hash);
   }
   return link;
@@ -104,7 +113,7 @@ export function App() {
   const auth = useAuth();
   const storage = useCaseStorage(Boolean(auth.user));
   const contacts = useContacts(auth.user?.id);
-  const [view, setView] = useState("overview");
+  const [view, setView] = useState(emailLink.view || "overview");
   const [authMode, setAuthMode] = useState("login");
   const [modal, setModal] = useState(null);
   const [registrationAudience, setRegistrationAudience] = useState('consumer');
@@ -159,11 +168,12 @@ export function App() {
     setModal("case");
   };
   const editCase = item => { setEditingCase(item); setIntakeSession(value => value + 1); setCaseError(""); setModal("case"); };
-  const onAuthenticated = user => { auth.setUser(user); setModal(null); setView("overview"); setAuthNotice(""); };
+  const onAuthenticated = user => { auth.setUser(user); setModal(null); setView(emailLink.view || "overview"); emailLink.view = null; setAuthNotice(""); };
   useEffect(() => {
     // Idempotent: React development mode runs effects twice.
     const { reset, verify } = emailLink;
     if (reset) { setResetToken(reset); setAuthMode("reset"); setModal("auth"); }
+    else if (emailLink.auth) { setAuthMode(emailLink.auth); setModal("auth"); }
     if (verify && !emailLink.verifyStarted) {
       emailLink.verifyStarted = true;
       authRequest("verify-email/confirm", { token: verify })
@@ -171,6 +181,14 @@ export function App() {
         .catch(() => showToast(lang === "de" ? "Bestätigungslink ungültig oder abgelaufen. Fordern Sie im Profil einen neuen an." : "Confirmation link invalid or expired. Request a new one in your profile."));
     }
   }, []);
+  // A desk section requested by the mobile app needs a sign-in first when the browser has no session yet.
+  useEffect(() => { if (!auth.loading && !auth.user && (emailLink.view || emailLink.caseId)) { setAuthMode("login"); setModal("auth"); } }, [auth.loading]);
+  // A case requested by the mobile app opens once the signed-in user's cases are loaded.
+  useEffect(() => {
+    if (!auth.user || !emailLink.caseId || !storage.cases.some(item => item.id === emailLink.caseId)) return;
+    selectCase(emailLink.caseId); setActiveTab(emailLink.caseTab); setView("case");
+    emailLink.caseId = null;
+  }, [auth.user?.id, storage.cases]);
   const signOut = async () => { try { await auth.logout(); setModal(null); setQuestion(""); setAnswer(""); } catch { showToast(lang === "de" ? "Abmelden fehlgeschlagen. Bitte erneut versuchen." : "Sign-out failed. Please try again."); } };
   const startCase = async payload => {
     if (savingCase) return false;
